@@ -1,36 +1,432 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# QA Security Playground
 
-## Getting Started
+A security-focused testing playground built to demonstrate **security testing, API testing, automated regression testing, and CI/CD integration** from a QA Engineer perspective.
 
-First, run the development server:
+The project contains intentionally vulnerable and fixed API scenarios that can be tested manually and automatically using Playwright.
+
+## 🎯 Project Goals
+
+This project demonstrates how a QA Engineer can:
+
+* Identify common web application security vulnerabilities
+* Design security-focused test scenarios
+* Automate security regression tests with Playwright
+* Validate API behavior and HTTP responses
+* Verify that security fixes remain effective
+* Integrate automated security tests into CI/CD
+* Create deterministic test data for reliable local and CI execution
+
+---
+
+## 🔐 Security Challenges
+
+### 1. IDOR / Broken Access Control
+
+Tests whether a user can access another user's order by manipulating the order ID.
+
+**Scenario:**
+
+```text
+Alice → Order #1
+Bob   → Order #3
+```
+
+Expected behavior:
+
+```text
+Alice → Order #1 → 200 OK
+Bob   → Order #1 → 403 Forbidden
+Bob   → Order #3 → 200 OK
+```
+
+Automated coverage includes:
+
+* Authorized resource access
+* Unauthorized resource access
+* Missing authentication context
+* Invalid resource ID
+
+---
+
+### 2. Rate Limit
+
+Tests whether the login endpoint prevents unlimited authentication attempts.
+
+Expected behavior:
+
+```text
+Attempt 1–5 → 401 Unauthorized
+Attempt 6+   → 429 Too Many Requests
+```
+
+The Playwright test verifies that the endpoint eventually returns `429`.
+
+---
+
+### 3. Email Enumeration
+
+Tests whether an attacker can determine whether an email address is registered.
+
+The vulnerable behavior exposes different responses for existing and non-existing accounts.
+
+The fixed implementation returns the same response structure for both cases.
+
+Automated regression verifies that:
+
+```text
+Existing email     → 200
+Non-existing email → 200
+```
+
+and neither response reveals account existence.
+
+---
+
+### 4. Finding & Scoring
+
+The playground also contains a finding submission and scoring mechanism.
+
+A security finding contains:
+
+* User
+* Challenge
+* Severity
+* Evidence
+* Correct/incorrect classification
+
+Automated tests verify that:
+
+```text
+Correct security finding → Score 100
+Incorrect finding         → Score 0
+```
+
+This demonstrates API validation and end-to-end verification of application behavior.
+
+---
+
+## 🧪 Automated Security Testing
+
+Security regression tests are implemented using **Playwright**.
+
+Current test coverage:
+
+| Area                         |  Tests |
+| ---------------------------- | -----: |
+| IDOR / Broken Access Control |      5 |
+| Rate Limit                   |      1 |
+| Finding & Scoring            |      3 |
+| Email Enumeration            |      1 |
+| **Total**                    | **10** |
+
+Run the complete security suite:
+
+```bash
+npx playwright test tests/security
+```
+
+Example result:
+
+```text
+Running 10 tests using 4 workers
+
+10 passed
+```
+
+---
+
+## 🔄 Security Regression Strategy
+
+The project follows a simple security regression workflow:
+
+```text
+Security Vulnerability
+        ↓
+Security Test Scenario
+        ↓
+Playwright Automation
+        ↓
+Application Fix
+        ↓
+Regression Test
+        ↓
+CI/CD Validation
+```
+
+The goal is not only to find a vulnerability once, but to ensure that a security fix continues to work after future code changes.
+
+---
+
+## 🚀 CI/CD
+
+Security tests are automatically executed through **GitHub Actions** on:
+
+* Push
+* Pull Request
+
+The CI pipeline:
+
+```text
+Checkout Repository
+        ↓
+Setup Node.js
+        ↓
+Install Dependencies
+        ↓
+Install Playwright
+        ↓
+Start PostgreSQL
+        ↓
+Initialize Database
+        ↓
+Seed Deterministic Test Data
+        ↓
+Start Next.js
+        ↓
+Probe API Routes
+        ↓
+Run Security Tests
+```
+
+The CI environment uses the same deterministic test data as local development, allowing the security suite to run consistently across environments.
+
+---
+
+## 🛠 Tech Stack
+
+### Application
+
+* Next.js
+* TypeScript
+* PostgreSQL
+* Prisma ORM
+
+### Testing
+
+* Playwright
+* API Testing
+* Security Testing
+* Regression Testing
+
+### Security Scenarios
+
+* IDOR / Broken Access Control
+* Rate Limiting
+* Email Enumeration
+* Authentication-related testing
+
+### DevOps
+
+* Git
+* GitHub Actions
+* CI/CD
+
+---
+
+## 📁 Project Structure
+
+```text
+qa-security-lab/
+├── .github/
+│   └── workflows/
+│       └── security-tests.yml
+│
+├── src/
+│   ├── app/
+│   │   └── api/
+│   │       ├── auth/
+│   │       │   ├── check-email/
+│   │       │   └── login/
+│   │       ├── challenges/
+│   │       │   └── [slug]/
+│   │       ├── findings/
+│   │       └── orders/
+│   │           └── [id]/
+│   │
+│   ├── lib/
+│   │   └── db.ts
+│   │
+│   └── prisma/
+│       └── contract.prisma
+│
+├── tests/
+│   └── security/
+│       ├── config/
+│       │   └── test-data.ts
+│       ├── helpers/
+│       │   └── security.ts
+│       ├── email-enumeration.spec.ts
+│       ├── finding.spec.ts
+│       ├── idor.spec.ts
+│       └── rate-limit.spec.ts
+│
+├── seed.mjs
+├── reset-seed.mjs
+├── playwright.config.ts
+└── prisma.config.ts
+```
+
+---
+
+## ⚙️ Getting Started
+
+### Prerequisites
+
+Make sure you have:
+
+* Node.js 22+
+* PostgreSQL
+* npm
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/archndrx/qa-security-lab.git
+cd qa-security-lab
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Configure environment variables
+
+Create `.env`:
+
+```env
+DATABASE_URL="postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public"
+IDOR_SECURITY_FIX=true
+```
+
+### 4. Initialize the database
+
+```bash
+npx prisma db init --db "$DATABASE_URL"
+```
+
+### 5. Seed test data
+
+```bash
+node reset-seed.mjs
+node seed.mjs
+```
+
+The seed creates deterministic test data:
+
+```text
+Alice
+  ├── Order #1 - MacBook
+  └── Order #2 - Keyboard
+
+Bob
+  ├── Order #3 - Monitor
+  └── Order #4 - Mouse
+```
+
+### 6. Start the application
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 7. Run security tests
 
-## Learn More
+```bash
+npx playwright test tests/security
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🧩 Test Data
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Test data is intentionally deterministic so that automated tests produce consistent results locally and in CI.
 
-## Deploy on Vercel
+```text
+User
+├── test-alice
+└── test-bob
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Orders
+├── #1 Alice - MacBook
+├── #2 Alice - Keyboard
+├── #3 Bob   - Monitor
+└── #4 Bob   - Mouse
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Challenges
+├── test-challenge-idor
+├── test-challenge-rate-limit
+└── test-challenge-email-enumeration
+```
+
+This avoids tests depending on randomly generated database IDs.
+
+---
+
+## 📊 QA Perspective
+
+This project focuses on security testing as part of the QA lifecycle rather than treating security as a separate activity.
+
+The testing approach includes:
+
+```text
+Requirement / Security Risk
+          ↓
+Test Scenario
+          ↓
+Positive / Negative Cases
+          ↓
+API Validation
+          ↓
+Security Regression
+          ↓
+CI/CD
+```
+
+The project demonstrates practical QA activities such as:
+
+* Test scenario design
+* Positive and negative testing
+* API testing
+* HTTP status validation
+* Security regression testing
+* Test data management
+* Automated test execution
+* CI/CD integration
+
+---
+
+## 🗺️ Roadmap
+
+Planned improvements:
+
+* [ ] Open Redirect challenge
+* [ ] Race Condition challenge
+* [ ] Additional API security scenarios
+* [ ] Security test reporting
+* [ ] Allure test reports
+* [ ] Expanded CI security gates
+* [ ] AI-assisted security test generation
+
+---
+
+## ⚠️ Disclaimer
+
+This project is an educational security testing playground.
+
+The vulnerabilities and security scenarios are intentionally simplified for learning and QA automation purposes. It should not be considered a production-ready security implementation.
+
+---
+
+## 👤 Author
+
+Built as a QA Engineering portfolio project focused on:
+
+**Quality Assurance · API Testing · Security Testing · Test Automation · CI/CD**
