@@ -1,0 +1,63 @@
+name: Security Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  security-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: qasecurity
+          POSTGRES_PASSWORD: qasecurity
+          POSTGRES_DB: qasecuritylab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U qasecurity -d qasecuritylab"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Seed database
+        env:
+          DATABASE_URL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public
+        run: |
+          node reset-seed.mjs
+          node seed.mjs
+
+      - name: Start application
+        env:
+          DATABASE_URL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public
+          IDOR_SECURITY_FIX: "true"
+        run: |
+          npm run dev > app.log 2>&1 &
+
+      - name: Wait for application
+        run: npx wait-on http://localhost:3000
+
+      - name: Run security tests
+        env:
+          DATABASE_URL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public
+          IDOR_SECURITY_FIX: "true"
+        run: npx playwright test tests/security

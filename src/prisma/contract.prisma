@@ -1,0 +1,47 @@
+// use prisma-8
+
+model User {
+  id        String    @id @default(cuid(2))
+  email     String    @unique
+  password  String
+  name      String
+
+  orders    Order[]
+  findings  Finding[]
+
+  createdAt DateTime  @default(now())
+}
+
+model Order {
+  id      Int    @id @default(autoincrement())
+  userId  String
+  product String
+  amount  Int
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Challenge {
+  id          String    @id @default(cuid(2))
+  title       String
+  slug        String    @unique
+  description String
+
+  findings Finding[]
+}
+
+model Finding {
+  id          String   @id @default(cuid(2))
+  userId      String
+  challengeId String
+
+  severity String
+  evidence String
+
+  isCorrect Boolean @default(false)
+
+  user      User      @relation(fields: [userId], references: [id])
+  challenge Challenge @relation(fields: [challengeId], references: [id])
+
+  createdAt DateTime @default(now())
+}
