@@ -61,6 +61,29 @@ jobs:
       - name: Wait for application
         run: npx wait-on http://localhost:3000
 
+      - name: Probe API routes
+        env:
+          DATABASE_URL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public
+          IDOR_SECURITY_FIX: "true"
+        run: |
+          echo "=== ORDERS API ==="
+          curl -i \
+            -H "X-User-ID: ghllkr7rhyz3wznyz2kxvg7z" \
+            http://localhost:3000/api/orders/9
+
+          echo ""
+          echo "=== FINDINGS API ==="
+          curl -i \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d '{
+              "userId":"ghllkr7rhyz3wznyz2kxvg7z",
+              "challengeId":"dfp5czb7s8nh0nti4qob12bk",
+              "severity":"HIGH",
+              "evidence":"Login returned 401 for failed attempts and did not enforce rate limit with 429."
+            }' \
+            http://localhost:3000/api/findings
+
       - name: Run security tests
         env:
           DATABASE_URL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public
