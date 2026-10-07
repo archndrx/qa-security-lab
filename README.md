@@ -4,7 +4,7 @@
 
 A security-focused testing playground built to demonstrate **security testing, API testing, automated regression testing, and CI/CD integration** from a QA Engineer perspective.
 
-The project contains intentionally vulnerable and fixed API scenarios that can be tested manually and automatically using Playwright.
+The project contains security scenarios based on common web application vulnerabilities, with automated tests used to validate both vulnerable behavior and security fixes.
 
 ## 🎯 Project Goals
 
