@@ -84,7 +84,42 @@ and neither response reveals account existence.
 
 ---
 
-### 4. Finding & Scoring
+### 4. Open Redirect
+
+Tests whether an attacker can manipulate a redirect parameter to redirect users to an external website.
+
+**Vulnerable behavior:**
+
+```text
+/api/redirect?url=https://evil.example.com
+                    ↓
+              307 Redirect
+                    ↓
+          https://evil.example.com
+```
+
+The fixed implementation only allows internal relative paths.
+
+Expected behavior:
+
+```text
+/dashboard                  → 307 Redirect
+https://evil.example.com   → 400 Bad Request
+//evil.example.com         → 400 Bad Request
+javascript:alert(1)        → 400 Bad Request
+```
+
+Automated regression covers:
+
+* External URL
+* Protocol-relative URL
+* JavaScript URL
+* Valid internal path
+* Missing redirect URL
+
+---
+
+### 5. Finding & Scoring
 
 The playground also contains a finding submission and scoring mechanism.
 
@@ -119,7 +154,8 @@ Current test coverage:
 | Rate Limit                   |      1 |
 | Finding & Scoring            |      3 |
 | Email Enumeration            |      1 |
-| **Total**                    | **10** |
+| Open Redirect                |      5 |
+| **Total**                    | **15** |
 
 Run the complete security suite:
 
@@ -127,27 +163,32 @@ Run the complete security suite:
 npx playwright test tests/security
 ```
 
-Example result:
+Current result:
 
 ```text
-Running 10 tests using 4 workers
+Running 15 tests using 5 workers
 
-10 passed
+15 passed
 ```
 
 ---
 
 ## 🔎 Security Test Coverage
 
-| Vulnerability | Attack Scenario | Expected Result | Automated |
-|---|---|---|---|
-| IDOR | User accesses another user's order | `403 Forbidden` | ✅ |
-| IDOR | User accesses own order | `200 OK` | ✅ |
-| IDOR | Missing user identity | `401 Unauthorized` | ✅ |
-| Rate Limit | Repeated failed login attempts | `429 Too Many Requests` | ✅ |
-| Email Enumeration | Check existing/non-existing email | Same response | ✅ |
-| Finding Validation | Submit valid security finding | Score `100` | ✅ |
-| Finding Validation | Submit invalid finding | Score `0` | ✅ |
+| Vulnerability      | Attack Scenario                    | Expected Result          | Automated |
+| ------------------ | ---------------------------------- | ------------------------ | --------- |
+| IDOR               | User accesses another user's order | `403 Forbidden`          | ✅         |
+| IDOR               | User accesses own order            | `200 OK`                 | ✅         |
+| IDOR               | Missing user identity              | `401 Unauthorized`       | ✅         |
+| IDOR               | Invalid order ID                   | `400 Bad Request`        | ✅         |
+| Rate Limit         | Repeated failed login attempts     | `429 Too Many Requests`  | ✅         |
+| Email Enumeration  | Check existing/non-existing email  | Same response            | ✅         |
+| Open Redirect      | Redirect to external URL           | `400 Bad Request`        | ✅         |
+| Open Redirect      | Protocol-relative redirect         | `400 Bad Request`        | ✅         |
+| Open Redirect      | JavaScript URL                     | `400 Bad Request`        | ✅         |
+| Open Redirect      | Valid internal redirect            | `307 Temporary Redirect` | ✅         |
+| Finding Validation | Submit valid security finding      | Score `100`              | ✅         |
+| Finding Validation | Submit invalid finding             | Score `0`                | ✅         |
 
 ---
 
@@ -157,6 +198,8 @@ The project follows a simple security regression workflow:
 
 ```text
 Security Vulnerability
+        ↓
+Manual Reproduction
         ↓
 Security Test Scenario
         ↓
@@ -169,7 +212,7 @@ Regression Test
 CI/CD Validation
 ```
 
-The goal is not only to find a vulnerability once, but to ensure that a security fix continues to work after future code changes.
+The goal is not only to identify a vulnerability once, but to ensure that a security fix continues to work after future code changes.
 
 ---
 
@@ -229,6 +272,7 @@ The CI environment uses the same deterministic test data as local development, a
 * IDOR / Broken Access Control
 * Rate Limiting
 * Email Enumeration
+* Open Redirect
 * Authentication-related testing
 
 ### DevOps
@@ -256,8 +300,9 @@ qa-security-lab/
 │   │       ├── challenges/
 │   │       │   └── [slug]/
 │   │       ├── findings/
-│   │       └── orders/
-│   │           └── [id]/
+│   │       ├── orders/
+│   │       │   └── [id]/
+│   │       └── redirect/
 │   │
 │   ├── lib/
 │   │   └── db.ts
@@ -274,6 +319,7 @@ qa-security-lab/
 │       ├── email-enumeration.spec.ts
 │       ├── finding.spec.ts
 │       ├── idor.spec.ts
+│       ├── open-redirect.spec.ts
 │       └── rate-limit.spec.ts
 │
 ├── seed.mjs
@@ -423,7 +469,12 @@ The project demonstrates practical QA activities such as:
 
 Planned improvements:
 
-* [ ] Open Redirect challenge
+* [x] IDOR / Broken Access Control
+* [x] Rate Limit
+* [x] Email Enumeration
+* [x] Open Redirect
+* [x] Security regression tests
+* [x] CI/CD security test execution
 * [ ] Race Condition challenge
 * [ ] Additional API security scenarios
 * [ ] Security test reporting
