@@ -1,3 +1,5 @@
+[![Security Tests](https://github.com/archndrx/qa-security-lab/actions/workflows/security-tests.yml/badge.svg)](https://github.com/archndrx/qa-security-lab/actions/workflows/security-tests.yml)
+
 # QA Security Playground
 
 A security-focused testing playground built to demonstrate **security testing, API testing, automated regression testing, and CI/CD integration** from a QA Engineer perspective.
@@ -132,6 +134,20 @@ Running 10 tests using 4 workers
 
 10 passed
 ```
+
+---
+
+## 🔎 Security Test Coverage
+
+| Vulnerability | Attack Scenario | Expected Result | Automated |
+|---|---|---|---|
+| IDOR | User accesses another user's order | `403 Forbidden` | ✅ |
+| IDOR | User accesses own order | `200 OK` | ✅ |
+| IDOR | Missing user identity | `401 Unauthorized` | ✅ |
+| Rate Limit | Repeated failed login attempts | `429 Too Many Requests` | ✅ |
+| Email Enumeration | Check existing/non-existing email | Same response | ✅ |
+| Finding Validation | Submit valid security finding | Score `100` | ✅ |
+| Finding Validation | Submit invalid finding | Score `0` | ✅ |
 
 ---
 
