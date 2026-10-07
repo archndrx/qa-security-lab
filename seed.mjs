@@ -20,6 +20,7 @@ try {
   console.log("Seeding database...");
 
   const alice = await db.orm.public.User.create({
+    id: "test-alice",
     email: "alice@lab.test",
     password: "password123",
     name: "Alice",
@@ -28,6 +29,7 @@ try {
   console.log("✓ Alice created:", alice.id);
 
   const bob = await db.orm.public.User.create({
+    id: "test-bob",
     email: "bob@lab.test",
     password: "password123",
     name: "Bob",
@@ -36,24 +38,28 @@ try {
   console.log("✓ Bob created:", bob.id);
 
   const aliceMacbook = await db.orm.public.Order.create({
+    id: 1,
     userId: alice.id,
     product: "MacBook",
     amount: 25000000,
   });
 
   const aliceKeyboard = await db.orm.public.Order.create({
+    id: 2,
     userId: alice.id,
     product: "Keyboard",
     amount: 1000000,
   });
 
   const bobMonitor = await db.orm.public.Order.create({
+    id: 3,
     userId: bob.id,
     product: "Monitor",
     amount: 3000000,
   });
 
   const bobMouse = await db.orm.public.Order.create({
+    id: 4,
     userId: bob.id,
     product: "Mouse",
     amount: 500000,
@@ -67,14 +73,17 @@ try {
   ]);
 
   const idorChallenge = await db.orm.public.Challenge.create({
+    id: "test-challenge-idor",
     title: "IDOR Challenge",
     slug: "idor",
     description: "Find unauthorized order access",
   });
 
+
   console.log("✓ IDOR Challenge created:", idorChallenge.id);
 
   const rateLimitChallenge = await db.orm.public.Challenge.create({
+    id: "test-challenge-rate-limit",
     title: "Rate Limit Bypass Challenge",
     slug: "rate-limit",
     description:
@@ -87,6 +96,7 @@ try {
   );
 
   const emailEnumerationChallenge = await db.orm.public.Challenge.create({
+    id: "test-challenge-email-enumeration",
     title: "Email Enumeration Challenge",
     slug: "email-enumeration",
     description:

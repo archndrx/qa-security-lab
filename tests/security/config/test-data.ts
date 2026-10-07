@@ -1,21 +1,21 @@
 export const TEST_USERS = {
   alice: {
-    id: "ghllkr7rhyz3wznyz2kxvg7z",
+    id: "test-alice",
     email: "alice@lab.test",
   },
   bob: {
-    id: "tr5aefa422dw305zdl4iuhq9",
+    id: "test-bob",
     email: "bob@lab.test",
   },
 } as const;
 
 export const TEST_ORDERS = {
-  aliceMacbook: 9,
-  bobMonitor: 11,
+  aliceMacbook: 1,
+  bobMonitor: 3,
 } as const;
 
 export const TEST_CHALLENGES = {
-  idor: "qjd69dlm1du3vp2smfyfi4t9",
-  rateLimit: "dfp5czb7s8nh0nti4qob12bk",
-  emailEnumeration: "b0xfeyq1ryg34auzjwnh883h",
+  idor: "test-challenge-idor",
+  rateLimit: "test-challenge-rate-limit",
+  emailEnumeration: "test-challenge-email-enumeration",
 } as const;
