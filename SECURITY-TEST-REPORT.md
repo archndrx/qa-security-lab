@@ -2,9 +2,20 @@
 
 ## 1. Overview
 
-This project is a **QA Security Playground** designed to demonstrate practical security testing, vulnerability reproduction, security fixes, and automated security regression testing.
+This project is a **QA Security Playground** designed to demonstrate practical security testing, vulnerability reproduction, security fixes, automated security regression testing, and CI/CD integration.
 
 The security test suite is implemented using **Playwright** and covers common web application security scenarios.
+
+The project currently contains **16 automated security tests** covering:
+
+* IDOR / Broken Access Control
+* Rate Limit
+* Email Enumeration
+* Open Redirect
+* Race Condition
+* Finding & Scoring
+
+Allure is used to generate a visual test report from the Playwright execution results.
 
 ### Security Test Summary
 
@@ -24,7 +35,7 @@ The security test suite is implemented using **Playwright** and covers common we
 
 ## Vulnerability
 
-Insecure Direct Object Reference (IDOR) occurs when an application exposes an object through a predictable identifier without properly verifying whether the authenticated user is authorized to access that object.
+Insecure Direct Object Reference (IDOR) occurs when an application exposes an object through a predictable identifier without properly verifying whether the requesting user is authorized to access that object.
 
 ### Attack Scenario
 
@@ -39,7 +50,7 @@ X-User-ID: test-bob
 
 ### Vulnerable Behavior
 
-The API returns Alice's order even though the request is made by Bob.
+The vulnerable implementation allows Bob to retrieve Alice's order.
 
 ```text
 Bob → GET /api/orders/1
@@ -70,9 +81,9 @@ if order.userId !== currentUserId
 
 ### Automated Test
 
-Test file:
-
-`tests/security/idor.spec.ts`
+```text
+tests/security/idor.spec.ts
+```
 
 Result:
 
@@ -99,17 +110,15 @@ Attempt 5 → 401
 Attempt 6 → 429
 ```
 
-### Security Fix
+### Security Control
 
-The login endpoint enforces a request threshold.
-
-Current security rule:
+The current playground implementation enforces:
 
 ```text
 5 attempts / 60 seconds
 ```
 
-Requests exceeding the limit receive:
+Requests exceeding the threshold receive:
 
 ```http
 HTTP 429 Too Many Requests
@@ -117,13 +126,15 @@ HTTP 429 Too Many Requests
 
 ### Automated Test
 
-Test file:
-
-`tests/security/rate-limit.spec.ts`
+```text
+tests/security/rate-limit.spec.ts
+```
 
 Result:
 
 **1 passed**
+
+> The current rate-limit implementation uses in-memory state and is intentionally simplified for the local security playground. A production implementation would require a shared/distributed rate-limiting mechanism.
 
 ---
 
@@ -133,7 +144,7 @@ Result:
 
 Email enumeration occurs when an application reveals whether an email address exists in the system.
 
-For example:
+A vulnerable response may expose information such as:
 
 ```json
 {
@@ -141,7 +152,7 @@ For example:
 }
 ```
 
-versus:
+while a non-existing account may return:
 
 ```json
 {
@@ -149,21 +160,11 @@ versus:
 }
 ```
 
-An attacker could use this behavior to identify registered accounts.
-
-### Attack Scenario
-
-The attacker checks multiple email addresses and attempts to determine which accounts exist.
-
-```text
-attacker@example.com
-alice@lab.test
-admin@example.com
-```
+This allows an attacker to identify registered accounts.
 
 ### Security Fix
 
-The endpoint returns a generic response regardless of whether the account exists.
+The endpoint returns a generic response regardless of account existence.
 
 ```json
 {
@@ -178,9 +179,9 @@ Existing and non-existing email addresses should not be distinguishable through 
 
 ### Automated Test
 
-Test file:
-
-`tests/security/email-enumeration.spec.ts`
+```text
+tests/security/email-enumeration.spec.ts
+```
 
 Result:
 
@@ -194,7 +195,7 @@ Result:
 
 An open redirect occurs when an application accepts an attacker-controlled URL and redirects users to an external domain.
 
-Example attack:
+Example:
 
 ```text
 /api/redirect?url=https://evil.example.com
@@ -202,7 +203,7 @@ Example attack:
 
 ### Vulnerable Behavior
 
-The application redirects the victim to the attacker-controlled domain.
+The vulnerable implementation redirects the request to the attacker-controlled domain.
 
 ```text
 Application
@@ -242,9 +243,9 @@ javascript:alert(1)
 
 ### Automated Test
 
-Test file:
-
-`tests/security/open-redirect.spec.ts`
+```text
+tests/security/open-redirect.spec.ts
+```
 
 Result:
 
@@ -289,11 +290,11 @@ For a coupon with:
 maxUses = 1
 ```
 
-this violates the business security rule.
+this violates the intended business rule.
 
 ### Security Fix
 
-The check and increment are performed atomically in PostgreSQL:
+The fixed implementation performs the usage check and increment atomically in PostgreSQL:
 
 ```sql
 UPDATE "Coupon"
@@ -308,20 +309,18 @@ RETURNING
   "maxUses"
 ```
 
-The successful update locks the affected row while the transaction is in progress.
-
-A concurrent request must wait until the first transaction completes and then re-evaluate the condition.
+The update is executed inside a PostgreSQL transaction together with the redemption insert.
 
 ### Expected Security Behavior
 
-For two concurrent redemption requests:
+Two concurrent requests should produce:
 
 ```text
 Request A → 200
 Request B → 409
 ```
 
-The order is not important.
+The response order is not important.
 
 The important security invariant is:
 
@@ -331,11 +330,11 @@ successful redemptions <= maxUses
 
 ### Automated Test
 
-Test file:
+```text
+tests/security/race-condition.spec.ts
+```
 
-`tests/security/race-condition.spec.ts`
-
-The test sends two requests concurrently using Playwright:
+The test sends two requests concurrently:
 
 ```ts
 Promise.all([
@@ -350,20 +349,20 @@ It verifies:
 [200, 409]
 ```
 
-and additionally verifies the database state:
+and validates the database state:
 
 ```text
 usedCount = 1
 usedCount <= maxUses
 ```
 
-### Test Reproducibility
+### Test Isolation
 
-The test creates a unique coupon for each test execution and removes it afterward.
+The test creates a unique coupon for every execution and removes it afterward.
 
-This makes the test independent from the deterministic application seed and allows repeated execution without manually resetting the database.
+This prevents the test from depending on the state of the deterministic application seed.
 
-The test has been executed repeatedly:
+The test has been independently executed multiple times:
 
 ```text
 Run #1 → PASS
@@ -375,21 +374,21 @@ Run #3 → PASS
 
 # 7. Finding & Scoring
 
-The project also includes a finding submission and scoring mechanism.
+The project contains a finding submission and scoring mechanism.
 
-Security findings are evaluated based on:
+A security finding contains:
 
+* User
 * Challenge
 * Severity
 * Evidence
-* User
-* Security condition
+* Correct/incorrect classification
 
 ### Automated Tests
 
-Test file:
-
-`tests/security/finding.spec.ts`
+```text
+tests/security/finding.spec.ts
+```
 
 Covered scenarios:
 
@@ -423,7 +422,7 @@ tests/security/
 └── finding.spec.ts
 ```
 
-The tests focus on security behavior rather than implementation details.
+The tests focus on observable security behavior rather than implementation details.
 
 Examples:
 
@@ -439,7 +438,7 @@ Race condition → only one successful redemption
 
 # 9. Security Testing Approach
 
-The testing approach combines:
+The project combines:
 
 * Positive security testing
 * Negative security testing
@@ -450,17 +449,78 @@ The testing approach combines:
 * Database state validation
 * Automated regression testing
 
-The goal is not only to identify vulnerabilities but also to verify that security controls remain effective after fixes.
+The general workflow is:
+
+```text
+Security Risk
+      ↓
+Manual Reproduction
+      ↓
+Security Test Scenario
+      ↓
+Automated Test
+      ↓
+Security Fix
+      ↓
+Regression Test
+      ↓
+Allure Report
+      ↓
+CI/CD Validation
+```
+
+The goal is not only to reproduce a vulnerability but also to verify that the corresponding security control remains effective after future changes.
 
 ---
 
-# 10. Security Test Results
+# 10. Allure Security Reporting
+
+The project uses Allure as a reporting layer for Playwright security tests.
+
+Reporting flow:
+
+```text
+Playwright
+    ↓
+allure-playwright
+    ↓
+allure-results/
+    ↓
+allure-commandline
+    ↓
+allure-report/
+```
+
+The report can be generated with:
+
+```bash
+npx allure generate allure-results --clean -o allure-report
+```
+
+For local preview in a WSL environment:
+
+```bash
+cd allure-report
+python3 -m http.server 8080 --bind 0.0.0.0
+```
+
+Then access:
+
+```text
+http://localhost:8080
+```
+
+Generated Allure artifacts are excluded from version control.
+
+---
+
+# 11. Security Test Results
 
 The complete automated security test suite currently contains:
 
 **16 security tests**
 
-Latest execution:
+Latest confirmed execution:
 
 ```text
 Running 16 tests using 6 workers
@@ -481,9 +541,9 @@ Execution time:
 
 ---
 
-# 11. CI/CD Integration
+# 12. CI/CD Integration
 
-The security test suite is designed to run automatically in GitHub Actions.
+The security test suite is integrated into GitHub Actions.
 
 The CI pipeline performs:
 
@@ -492,32 +552,50 @@ The CI pipeline performs:
 3. Install dependencies
 4. Install Playwright browsers
 5. Initialize PostgreSQL
-6. Seed test data
+6. Seed deterministic test data
 7. Start the application
 8. Probe API routes
 9. Execute security tests
 
-The pipeline is intended to act as a security regression gate so that security-related regressions can be detected before changes are merged.
+The pipeline is intended to function as a security regression gate so that security-related regressions can be detected during CI execution.
 
 ---
 
-# 12. Future Improvements
+# 13. Current Coverage
+
+Current implemented security scenarios:
+
+| Security Area                | Status      |
+| ---------------------------- | ----------- |
+| IDOR / Broken Access Control | Implemented |
+| Rate Limit                   | Implemented |
+| Email Enumeration            | Implemented |
+| Open Redirect                | Implemented |
+| Race Condition               | Implemented |
+| Finding & Scoring            | Implemented |
+| Playwright Automation        | Implemented |
+| Allure Reporting             | Implemented |
+| GitHub Actions CI            | Implemented |
+
+---
+
+# 14. Future Improvements
 
 Planned improvements include:
 
-* Allure security test reporting
-* Security test evidence
-* CI security gates
+* Mass Assignment
+* Sensitive Data Exposure
+* Role-based Access Control / Privilege Escalation
 * Expanded API security scenarios
-* Additional concurrency scenarios
-* Security regression dashboard
+* Expanded CI security gates
+* Security test evidence and attachments
 * AI-assisted security test generation
 * Automated security test case generation from requirements
 * AI-assisted security test result summarization
 
 ---
 
-# 13. Conclusion
+# 15. Conclusion
 
 The QA Security Playground demonstrates an end-to-end security testing workflow:
 
@@ -534,6 +612,8 @@ Create Automated Security Test
         ↓
 Validate Application Behavior
         ↓
+Generate Allure Report
+        ↓
 Run Security Regression Tests
         ↓
 Integrate With CI/CD
@@ -542,3 +622,5 @@ Integrate With CI/CD
 The current implementation successfully validates:
 
 **16 automated security tests with 0 failures.**
+
+The project is intentionally designed as a learning and portfolio environment rather than a production security platform.
