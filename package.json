@@ -7,6 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:security": "playwright test tests/security",
+    "allure:generate": "allure generate allure-results --clean -o allure-report",
+    "allure:serve": "python3 -m http.server 8080 --directory allure-report --bind 0.0.0.0",
+    "test:security:report": "npm run test:security && npm run allure:generate",
     "postinstall": "prisma skills sync || exit 0"
   },
   "dependencies": {
@@ -26,6 +30,8 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "allure-commandline": "^2.46.1",
+    "allure-playwright": "^3.13.0",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "tailwindcss": "^4",
