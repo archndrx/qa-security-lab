@@ -72,6 +72,16 @@ try {
     bobMouse.id,
   ]);
 
+    const raceCoupon = await db.orm.public.Coupon.create({
+    id: "test-coupon-race-condition",
+    code: "DISCOUNT50",
+    discount: 50,
+    maxUses: 1,
+    usedCount: 0,
+  });
+
+  console.log("✓ Race Condition Coupon created:", raceCoupon.code);
+
   const idorChallenge = await db.orm.public.Challenge.create({
     id: "test-challenge-idor",
     title: "IDOR Challenge",

@@ -17,7 +17,9 @@ const db = postgres({
 
 try {
   await db.orm.public.Finding.deleteAll();
+  await db.orm.public.CouponRedemption.deleteAll();
   await db.orm.public.Order.deleteAll();
+  await db.orm.public.Coupon.deleteAll();
   await db.orm.public.Challenge.deleteAll();
   await db.orm.public.User.deleteAll();
 

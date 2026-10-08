@@ -34,9 +34,9 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'3b2b3425e80d0b218e1d0044d173c2beb603f2a1f38e4a7393f116b403af1f2c'>;
+  StorageHashBase<'311bd12f99c04cacde3c12bb41ab4e3ce19e12d337cdb37fc5ff2e6d02d343ec'>;
 export type ExecutionHash =
-  ExecutionHashBase<'25f907216137575b89a100ec5d282095b9aa299d5255db0f51996333166b401e'>;
+  ExecutionHashBase<'14946188707b2fdef3d467fc592db1812cdea7d41b1d691294282749fb8ee1f3'>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
 
@@ -256,6 +256,20 @@ export type FieldOutputTypes = {
       readonly slug: CodecTypes['pg/text@1']['output'];
       readonly title: CodecTypes['pg/text@1']['output'];
     };
+    readonly Coupon: {
+      readonly code: CodecTypes['pg/text@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly discount: CodecTypes['pg/int4@1']['output'];
+      readonly id: CodecTypes['pg/text@1']['output'];
+      readonly maxUses: CodecTypes['pg/int4@1']['output'];
+      readonly usedCount: CodecTypes['pg/int4@1']['output'];
+    };
+    readonly CouponRedemption: {
+      readonly couponId: CodecTypes['pg/text@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly id: CodecTypes['pg/text@1']['output'];
+      readonly userId: CodecTypes['pg/text@1']['output'];
+    };
     readonly Finding: {
       readonly challengeId: CodecTypes['pg/text@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
@@ -287,6 +301,20 @@ export type FieldInputTypes = {
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly slug: CodecTypes['pg/text@1']['input'];
       readonly title: CodecTypes['pg/text@1']['input'];
+    };
+    readonly Coupon: {
+      readonly code: CodecTypes['pg/text@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly discount: CodecTypes['pg/int4@1']['input'];
+      readonly id: CodecTypes['pg/text@1']['input'];
+      readonly maxUses: CodecTypes['pg/int4@1']['input'];
+      readonly usedCount: CodecTypes['pg/int4@1']['input'];
+    };
+    readonly CouponRedemption: {
+      readonly couponId: CodecTypes['pg/text@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly id: CodecTypes['pg/text@1']['input'];
+      readonly userId: CodecTypes['pg/text@1']['input'];
     };
     readonly Finding: {
       readonly challengeId: CodecTypes['pg/text@1']['input'];
@@ -320,6 +348,20 @@ export type StorageColumnTypes = {
       readonly slug: CodecTypes['pg/text@1']['output'];
       readonly title: CodecTypes['pg/text@1']['output'];
     };
+    readonly Coupon: {
+      readonly code: CodecTypes['pg/text@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly discount: CodecTypes['pg/int4@1']['output'];
+      readonly id: CodecTypes['pg/text@1']['output'];
+      readonly maxUses: CodecTypes['pg/int4@1']['output'];
+      readonly usedCount: CodecTypes['pg/int4@1']['output'];
+    };
+    readonly CouponRedemption: {
+      readonly couponId: CodecTypes['pg/text@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly id: CodecTypes['pg/text@1']['output'];
+      readonly userId: CodecTypes['pg/text@1']['output'];
+    };
     readonly Finding: {
       readonly challengeId: CodecTypes['pg/text@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
@@ -351,6 +393,20 @@ export type StorageColumnInputTypes = {
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly slug: CodecTypes['pg/text@1']['input'];
       readonly title: CodecTypes['pg/text@1']['input'];
+    };
+    readonly Coupon: {
+      readonly code: CodecTypes['pg/text@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly discount: CodecTypes['pg/int4@1']['input'];
+      readonly id: CodecTypes['pg/text@1']['input'];
+      readonly maxUses: CodecTypes['pg/int4@1']['input'];
+      readonly usedCount: CodecTypes['pg/int4@1']['input'];
+    };
+    readonly CouponRedemption: {
+      readonly couponId: CodecTypes['pg/text@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly id: CodecTypes['pg/text@1']['input'];
+      readonly userId: CodecTypes['pg/text@1']['input'];
     };
     readonly Finding: {
       readonly challengeId: CodecTypes['pg/text@1']['input'];
@@ -386,6 +442,25 @@ export namespace Models {
     findings: public_Finding[];
     readonly [RelationKeys]?: 'findings';
   };
+  export type public_Coupon = {
+    code: CodecTypes['pg/text@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    discount: CodecTypes['pg/int4@1']['output'];
+    id: CodecTypes['pg/text@1']['output'];
+    maxUses: CodecTypes['pg/int4@1']['output'];
+    usedCount: CodecTypes['pg/int4@1']['output'];
+    redemptions: public_CouponRedemption[];
+    readonly [RelationKeys]?: 'redemptions';
+  };
+  export type public_CouponRedemption = {
+    couponId: CodecTypes['pg/text@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    id: CodecTypes['pg/text@1']['output'];
+    userId: CodecTypes['pg/text@1']['output'];
+    coupon: public_Coupon;
+    user: public_User;
+    readonly [RelationKeys]?: 'coupon' | 'user';
+  };
   export type public_Finding = {
     challengeId: CodecTypes['pg/text@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
@@ -414,13 +489,16 @@ export namespace Models {
     password: CodecTypes['pg/text@1']['output'];
     findings: public_Finding[];
     orders: public_Order[];
-    readonly [RelationKeys]?: 'findings' | 'orders';
+    redemptions: public_CouponRedemption[];
+    readonly [RelationKeys]?: 'findings' | 'orders' | 'redemptions';
   };
 }
 
 export declare const models: {
   public: {
     Challenge: Models.public_Challenge;
+    Coupon: Models.public_Coupon;
+    CouponRedemption: Models.public_CouponRedemption;
     Finding: Models.public_Finding;
     Order: Models.public_Order;
     User: Models.public_User;
@@ -472,6 +550,116 @@ type ContractBase = Omit<
               uniques: readonly [{ readonly columns: readonly ['slug'] }];
               indexes: readonly [];
               foreignKeys: readonly [];
+            };
+            readonly Coupon: {
+              columns: {
+                readonly code: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly discount: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly id: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly maxUses: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly usedCount: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['code'] }];
+              indexes: readonly [];
+              foreignKeys: readonly [];
+            };
+            readonly CouponRedemption: {
+              columns: {
+                readonly couponId: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly id: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly userId: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['couponId', 'userId'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'CouponRedemption_couponId_idx_a9dd19dc';
+                  readonly prefix: 'CouponRedemption_couponId_idx';
+                  readonly columns: readonly ['couponId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'CouponRedemption_userId_idx_a489d58a';
+                  readonly prefix: 'CouponRedemption_userId_idx';
+                  readonly columns: readonly ['userId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'CouponRedemption';
+                    readonly columns: readonly ['couponId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'Coupon';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'CouponRedemption';
+                    readonly columns: readonly ['userId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'User';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
             };
             readonly Finding: {
               columns: {
@@ -657,6 +845,11 @@ type ContractBase = Omit<
   readonly targetFamily: 'sql';
   readonly roots: {
     readonly Challenge: { readonly namespace: 'public' & NamespaceId; readonly model: 'Challenge' };
+    readonly Coupon: { readonly namespace: 'public' & NamespaceId; readonly model: 'Coupon' };
+    readonly CouponRedemption: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'CouponRedemption';
+    };
     readonly Finding: { readonly namespace: 'public' & NamespaceId; readonly model: 'Finding' };
     readonly Order: { readonly namespace: 'public' & NamespaceId; readonly model: 'Order' };
     readonly User: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
@@ -705,6 +898,118 @@ type ContractBase = Omit<
                 readonly id: { readonly column: 'id' };
                 readonly slug: { readonly column: 'slug' };
                 readonly title: { readonly column: 'title' };
+              };
+            };
+          };
+          readonly Coupon: {
+            readonly fields: {
+              readonly code: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly discount: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly maxUses: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly usedCount: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+            };
+            readonly relations: {
+              readonly redemptions: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'CouponRedemption';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['couponId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'Coupon';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly code: { readonly column: 'code' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly discount: { readonly column: 'discount' };
+                readonly id: { readonly column: 'id' };
+                readonly maxUses: { readonly column: 'maxUses' };
+                readonly usedCount: { readonly column: 'usedCount' };
+              };
+            };
+          };
+          readonly CouponRedemption: {
+            readonly fields: {
+              readonly couponId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly userId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+            };
+            readonly relations: {
+              readonly coupon: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Coupon';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['couponId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly user: {
+                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['userId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'CouponRedemption';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly couponId: { readonly column: 'couponId' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly id: { readonly column: 'id' };
+                readonly userId: { readonly column: 'userId' };
               };
             };
           };
@@ -869,6 +1174,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['userId'];
                 };
               };
+              readonly redemptions: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'CouponRedemption';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['userId'];
+                };
+              };
             };
             readonly storage: {
               readonly table: 'User';
@@ -915,6 +1231,22 @@ type ContractBase = Omit<
           readonly onCreate: { readonly id: 'cuid2'; readonly kind: 'generator' };
           readonly ref: {
             readonly entry: 'Challenge';
+            readonly field: 'id';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'cuid2'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'Coupon';
+            readonly field: 'id';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'cuid2'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'CouponRedemption';
             readonly field: 'id';
             readonly namespace: 'public';
           };
