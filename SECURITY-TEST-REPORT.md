@@ -6,7 +6,7 @@ This project is a **QA Security Playground** designed to demonstrate practical s
 
 The security test suite is implemented using **Playwright** and covers common web application security scenarios.
 
-The project currently contains **16 automated security tests** covering:
+The project currently contains **18 automated security tests** covering:
 
 * IDOR / Broken Access Control
 * Rate Limit
@@ -14,6 +14,8 @@ The project currently contains **16 automated security tests** covering:
 * Open Redirect
 * Race Condition
 * Finding & Scoring
+
+* Mass Assignment
 
 Allure is used to generate a visual test report from the Playwright execution results.
 
@@ -27,7 +29,8 @@ Allure is used to generate a visual test report from the Playwright execution re
 | Open Redirect                |          5 | PASS        |
 | Finding & Scoring            |          3 | PASS        |
 | Race Condition               |          1 | PASS        |
-| **Total**                    |     **16** | **16 PASS** |
+| Mass Assignment              |          2 | PASS        |
+| **Total**                    |     **18** | **18 PASS** |
 
 ---
 
@@ -514,34 +517,69 @@ Generated Allure artifacts are excluded from version control.
 
 ---
 
-# 11. Security Test Results
+# 11. Mass Assignment
+
+## Vulnerability
+
+Mass Assignment occurs when an application binds client-supplied fields to
+sensitive model attributes without restricting which fields may be changed.
+
+## Reproduction Evidence
+
+The vulnerable profile endpoint accepted a request containing `isAdmin: true`
+and changed Alice's database record from `isAdmin = false` to `isAdmin = true`.
+
+The behavior was reproduced using curl and verified directly against PostgreSQL.
+
+## Remediation
+
+The endpoint now updates only the explicitly permitted `name` field.
+Client-supplied `isAdmin` and `isVerified` fields are not included in the SQL
+update query.
+
+## Automated Regression Tests
+
+- Protected attributes remain unchanged when included in a malicious request.
+- A normal profile name update succeeds.
+
+**Result:** 2/2 tests passed.
+
+## Remaining Risk
+
+The endpoint still needs proper authentication and authorization. The acting
+user should be derived from a verified session or token rather than trusting
+a client-supplied `userId`. This lab endpoint is not production-ready.
+
+---
+
+# 12. Security Test Results
 
 The complete automated security test suite currently contains:
 
-**16 security tests**
+**18 security tests**
 
 Latest confirmed execution:
 
 ```text
-Running 16 tests using 6 workers
+Running 18 tests using 6 workers
 
-16 passed
+18 passed
 0 failed
 ```
 
 Execution time:
 
 ```text
-5.2s
+5.8s
 ```
 
 ### Final Result
 
-**16/16 security tests passed**
+**18/18 security tests passed**
 
 ---
 
-# 12. CI/CD Integration
+# 13. CI/CD Integration
 
 The security test suite is integrated into GitHub Actions.
 
@@ -576,6 +614,7 @@ Current implemented security scenarios:
 | Playwright Automation        | Implemented |
 | Allure Reporting             | Implemented |
 | GitHub Actions CI            | Implemented |
+| Mass Assignment              | Remediated  |
 
 ---
 
@@ -583,7 +622,8 @@ Current implemented security scenarios:
 
 Planned improvements include:
 
-* Mass Assignment
+* Authentication and authorization for profile updates
+* Deriving user identity from a verified session or token
 * Sensitive Data Exposure
 * Role-based Access Control / Privilege Escalation
 * Expanded API security scenarios
@@ -621,6 +661,6 @@ Integrate With CI/CD
 
 The current implementation successfully validates:
 
-**16 automated security tests with 0 failures.**
+**18 automated security tests with 0 failures.**
 
 The project is intentionally designed as a learning and portfolio environment rather than a production security platform.

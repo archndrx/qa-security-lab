@@ -262,6 +262,25 @@ Result:
 
 ---
 
+### 7. Mass Assignment
+
+A vulnerable profile update endpoint initially allowed protected attributes such as
+`isAdmin` and `isVerified` to be modified through client input.
+
+The vulnerability was reproduced manually and verified against PostgreSQL.
+The endpoint was then remediated using an explicit allowlist that updates only
+the `name` field.
+
+Automated regression tests verify that protected attributes remain unchanged
+while normal profile updates continue to work.
+
+**Status:** Remediated; 2 regression tests passing.
+
+**Remaining concern:** Authentication and authorization are not yet implemented
+for this profile endpoint. This lab endpoint must not be treated as production-ready.
+
+---
+
 ## 🧪 Automated Security Testing
 
 Security regression tests are implemented using **Playwright**.
@@ -276,7 +295,8 @@ Current coverage:
 | Open Redirect                |      5 | PASS        |
 | Finding & Scoring            |      3 | PASS        |
 | Race Condition               |      1 | PASS        |
-| **Total**                    | **16** | **16 PASS** |
+| Mass Assignment              |     2  | PASS        |
+| **Total**                    | **18** | **18 PASS** |
 
 Run the complete security suite:
 
@@ -287,9 +307,9 @@ npx playwright test tests/security
 Latest confirmed execution:
 
 ```text
-Running 16 tests using 6 workers
+Running 18 tests using 6 workers
 
-16 passed
+18 passed
 0 failed
 ```
 
@@ -354,6 +374,7 @@ Generated Allure artifacts are excluded from Git through `.gitignore`.
 | Finding Validation | Correct security finding               | Score `100`              | ✅         |
 | Finding Validation | Incorrect finding                      | Score `0`                | ✅         |
 | Race Condition     | Concurrent coupon redemption           | Only one succeeds        | ✅         |
+| Mass Assignment    | Modify protected profile attributes    | Protected fields unchanged | ✅       |
 
 ---
 
@@ -444,6 +465,7 @@ The security suite is intended to act as a regression gate against security-rela
 * Email Enumeration
 * Open Redirect
 * Race Condition
+* Mass Assignment
 
 ### Reporting
 
@@ -477,6 +499,8 @@ qa-security-lab/
 │   │       ├── coupons/
 │   │       │   └── redeem/
 │   │       ├── findings/
+│   │       ├── users/
+│   │       │   └── profile/
 │   │       ├── orders/
 │   │       │   └── [id]/
 │   │       └── redirect/
@@ -500,6 +524,7 @@ qa-security-lab/
 │       ├── finding.spec.ts
 │       ├── idor.spec.ts
 │       ├── open-redirect.spec.ts
+│       ├── mass-assignment.spec.ts
 │       ├── race-condition.spec.ts
 │       └── rate-limit.spec.ts
 │
@@ -681,10 +706,10 @@ The project demonstrates practical QA activities such as:
 * [x] Playwright security regression tests
 * [x] CI/CD security test execution
 * [x] Allure security test reporting
+* [x] Mass Assignment
 
 ### Planned
 
-* [ ] Mass Assignment
 * [ ] Sensitive Data Exposure
 * [ ] Role-based Access Control / Privilege Escalation
 * [ ] Expanded API security scenarios

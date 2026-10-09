@@ -24,6 +24,8 @@ try {
     email: "alice@lab.test",
     password: "password123",
     name: "Alice",
+    isAdmin: false,
+    isVerified: true,
   });
 
   console.log("✓ Alice created:", alice.id);
@@ -33,6 +35,8 @@ try {
     email: "bob@lab.test",
     password: "password123",
     name: "Bob",
+    isAdmin: false,
+    isVerified: false,
   });
 
   console.log("✓ Bob created:", bob.id);
@@ -72,7 +76,7 @@ try {
     bobMouse.id,
   ]);
 
-    const raceCoupon = await db.orm.public.Coupon.create({
+  const raceCoupon = await db.orm.public.Coupon.create({
     id: "test-coupon-race-condition",
     code: "DISCOUNT50",
     discount: 50,
