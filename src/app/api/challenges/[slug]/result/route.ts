@@ -1,20 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { pgPool } from "@/lib/pg";
+import { getSessionUserId } from "@/lib/auth";
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const { slug } = await params;
-
-  const userId = request.headers.get("X-User-ID");
+  const userId = getSessionUserId(request);
 
   if (!userId) {
     return NextResponse.json(
-      { error: "Missing X-User-ID header" },
+      { error: "Authentication required" },
       { status: 401 }
     );
   }
+
+  const { slug } = await params;
 
   const challenge = await db.orm.public.Challenge
     .where({ slug })
@@ -27,14 +29,25 @@ export async function GET(
     );
   }
 
-  const findings = await db.orm.public.Finding
-    .where({
-      userId,
-      challengeId: challenge.id,
-    })
-    .all();
+  const result = await pgPool.query<{
+    id: string;
+    isCorrect: boolean;
+    severity: string;
+  }>(
+    `
+    SELECT "id", "isCorrect", "severity"
+    FROM "Finding"
+    WHERE "userId" = $1
+      AND "challengeId" = $2
+    ORDER BY "createdAt" DESC, "id" DESC
+    LIMIT 1
+    `,
+    [userId, challenge.id]
+  );
 
-  if (findings.length === 0) {
+  const latestFinding = result.rows[0];
+
+  if (!latestFinding) {
     return NextResponse.json({
       correct: false,
       score: 0,
@@ -42,13 +55,9 @@ export async function GET(
     });
   }
 
-  const latestFinding = findings[findings.length - 1];
-
-  const score = latestFinding.isCorrect ? 100 : 0;
-
   return NextResponse.json({
     correct: latestFinding.isCorrect,
-    score,
+    score: latestFinding.isCorrect ? 100 : 0,
     severity: latestFinding.severity,
     findingId: latestFinding.id,
   });

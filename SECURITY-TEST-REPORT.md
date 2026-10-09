@@ -6,7 +6,7 @@ This project is a **QA Security Playground** designed to demonstrate practical s
 
 The security test suite is implemented using **Playwright** and covers common web application security scenarios.
 
-The project currently contains **21 automated security tests** covering:
+The project currently contains **29 automated security tests** covering:
 
 * IDOR / Broken Access Control
 * Rate Limit
@@ -23,15 +23,15 @@ Allure is used to generate a visual test report from the Playwright execution re
 
 | Security Area                | Test Cases | Result      |
 | ---------------------------- | ---------: | ----------- |
-| IDOR / Broken Access Control |          5 | PASS        |
+| IDOR / Broken Access Control |          6 | PASS        |
 | Rate Limit                   |          1 | PASS        |
 | Email Enumeration            |          1 | PASS        |
 | Open Redirect                |          5 | PASS        |
-| Finding & Scoring            |          3 | PASS        |
+| Finding & Scoring            |          7 | PASS        |
 | Race Condition               |          1 | PASS        |
-| Mass Assignment              |          2 | PASS        |
+| Mass Assignment              |          5 | PASS        |
 | Sensitive Data Exposure      |          3 | PASS        |
-| **Total**                    |     **21** | **21 PASS** |
+| **Total**                    |     **29** | **29 PASS** |
 
 ---
 
@@ -45,12 +45,14 @@ Insecure Direct Object Reference (IDOR) occurs when an application exposes an ob
 
 Alice owns Order #1.
 
-Bob attempts to access:
+Bob is authenticated with his own session and attempts to access:
 
 ```http
 GET /api/orders/1
-X-User-ID: test-bob
+Cookie: qa_session=<Bob's signed session>
 ```
+
+A client-supplied `X-User-ID` header is not trusted and grants no access.
 
 ### Vulnerable Behavior
 
@@ -66,10 +68,10 @@ Bob → GET /api/orders/1
 
 ### Security Fix
 
-The API verifies that the requested order belongs to the current user.
+The API identifies the current user from the signed `qa_session` cookie and verifies that the requested order belongs to that user. Ownership is always enforced; the former `IDOR_SECURITY_FIX` toggle was removed.
 
 ```text
-if order.userId !== currentUserId
+if order.userId !== sessionUserId
     → HTTP 403 Forbidden
 ```
 
@@ -80,7 +82,8 @@ if order.userId !== currentUserId
 | Alice accesses Alice's order |      200 |
 | Bob accesses Alice's order   |      403 |
 | Bob accesses Bob's order     |      200 |
-| Missing user identity        |      401 |
+| Missing session              |      401 |
+| Forged `X-User-ID` header    |      401 |
 | Invalid order ID             |      400 |
 
 ### Automated Test
@@ -91,7 +94,7 @@ tests/security/idor.spec.ts
 
 Result:
 
-**5 passed**
+**6 passed**
 
 ---
 
@@ -121,6 +124,8 @@ The current playground implementation enforces:
 ```text
 5 attempts / 60 seconds
 ```
+
+The limit is tracked per email address, and passwords are verified against bcrypt hashes.
 
 Requests exceeding the threshold receive:
 
@@ -338,12 +343,12 @@ successful redemptions <= maxUses
 tests/security/race-condition.spec.ts
 ```
 
-The test sends two requests concurrently:
+The test logs in as two separate users (Alice and Bob, each with their own session) and sends two requests concurrently. The redeeming user is taken from the session, not the request body:
 
 ```ts
 Promise.all([
-  request.post(...),
-  request.post(...),
+  aliceRequest.post(...),
+  bobRequest.post(...),
 ]);
 ```
 
@@ -396,15 +401,21 @@ tests/security/finding.spec.ts
 
 Covered scenarios:
 
-| Scenario                          | Expected Score |
-| --------------------------------- | -------------: |
-| Correct Rate Limit finding        |            100 |
-| Incorrect finding                 |              0 |
-| Correct Email Enumeration finding |            100 |
+Findings are created and read for the authenticated session user. A `userId` in the request body cannot impersonate another user.
+
+| Scenario                                    |          Expected |
+| ------------------------------------------- | ----------------: |
+| Correct Rate Limit finding                  |         Score 100 |
+| Incorrect finding                           |           Score 0 |
+| Correct Email Enumeration finding           |         Score 100 |
+| Unauthenticated submission                  |          Rejected |
+| Forged `userId` in body                     |   Not impersonated |
+| Result returns latest finding of session user |    Latest finding |
+| Another user's finding                      |      Not exposed |
 
 Result:
 
-**3 passed**
+**7 passed**
 
 ---
 
@@ -417,7 +428,8 @@ tests/security/
 ├── config/
 │   └── test-data.ts
 ├── helpers/
-│   └── security.ts
+│   ├── security.ts
+│   └── session.ts
 ├── idor.spec.ts
 ├── rate-limit.spec.ts
 ├── email-enumeration.spec.ts
@@ -536,22 +548,28 @@ The behavior was reproduced using curl and verified directly against PostgreSQL.
 
 ## Remediation
 
-The endpoint now updates only the explicitly permitted `name` field.
-Client-supplied `isAdmin` and `isVerified` fields are not included in the SQL
-update query.
+The endpoint now requires an authenticated session and updates only the
+explicitly permitted `name` field. The acting user is taken from the signed
+`qa_session` cookie, so a client-supplied `userId` is ignored. Client-supplied
+`isAdmin` and `isVerified` fields are not included in the SQL update query.
 
 ## Automated Regression Tests
 
 - Protected attributes remain unchanged when included in a malicious request.
 - A normal profile name update succeeds.
+- Alice cannot update Bob by forging `userId`.
+- A tampered session cookie is rejected (`401`).
+- Requests without a valid session are rejected (`401`).
 
-**Result:** 2/2 tests passed.
+Each test creates its own temporary user (with a bcrypt-hashed password) and
+deletes it afterward, so the per-email login rate limit cannot couple tests.
+
+**Result:** 5/5 tests passed.
 
 ## Remaining Risk
 
-The endpoint still needs proper authentication and authorization. The acting
-user should be derived from a verified session or token rather than trusting
-a client-supplied `userId`. This lab endpoint is not production-ready.
+The session is a simple HMAC-signed cookie for this lab. It has no server-side
+revocation or rotation. This lab app is not production-ready.
 
 ---
 
@@ -605,26 +623,26 @@ covered by regression tests.
 
 The complete automated security test suite currently contains:
 
-**21 security tests**
+**29 security tests**
 
 Latest confirmed execution:
 
 ```text
-Running 21 tests using 6 workers
+Running 29 tests using 6 workers
 
-21 passed (2.1s)
+29 passed (13.2s)
 0 failed
 ```
 
 Execution time:
 
 ```text
-2.1s
+13.2s
 ```
 
 ### Final Result
 
-**21/21 security tests passed**
+**29/29 security tests passed**
 
 ---
 
@@ -664,6 +682,8 @@ Current implemented security scenarios:
 | Allure Reporting             | Implemented |
 | GitHub Actions CI            | Implemented |
 | Mass Assignment              | Remediated  |
+| Session Authentication       | Implemented |
+| Password Hashing (bcrypt)    | Implemented |
 | Sensitive Data Exposure      | Implemented |
 
 ---
@@ -672,8 +692,7 @@ Current implemented security scenarios:
 
 Planned improvements include:
 
-* Authentication and authorization for profile updates
-* Deriving user identity from a verified session or token
+* Server-side session revocation and rotation
 * Role-based Access Control / Privilege Escalation
 * Expanded API security scenarios
 * Expanded CI security gates
@@ -710,6 +729,6 @@ Integrate With CI/CD
 
 The current implementation successfully validates:
 
-**21 automated security tests with 0 failures.**
+**29 automated security tests with 0 failures.**
 
 The project is intentionally designed as a learning and portfolio environment rather than a production security platform.

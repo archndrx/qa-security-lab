@@ -1,7 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { pgPool } from "@/lib/pg";
+import { getSessionUserId } from "@/lib/auth";
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
+  const userId = getSessionUserId(request);
+
+  if (!userId) {
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401 }
+    );
+  }
+
   let body: unknown;
 
   try {
@@ -16,18 +26,15 @@ export async function PATCH(request: Request) {
   if (
     typeof body !== "object" ||
     body === null ||
-    !("userId" in body) ||
-    typeof body.userId !== "string" ||
     !("name" in body) ||
     typeof body.name !== "string"
   ) {
     return NextResponse.json(
-      { error: "userId and name are required" },
+      { error: "Name is required" },
       { status: 400 }
     );
   }
 
-  const userId = body.userId;
   const name = body.name.trim();
 
   if (name.length === 0 || name.length > 100) {
@@ -37,7 +44,6 @@ export async function PATCH(request: Request) {
     );
   }
 
-  // Explicit allowlist: only the name can be updated.
   const result = await pgPool.query<{
     id: string;
     name: string;

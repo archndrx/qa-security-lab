@@ -51,6 +51,9 @@ jobs:
           node reset-seed.mjs
           node seed.mjs
 
+      - name: Generate session secret
+        run: echo "SESSION_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
       - name: Start application
         env:
           DATABASE_URL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public

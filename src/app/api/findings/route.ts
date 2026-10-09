@@ -1,7 +1,18 @@
-import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 
-export async function POST(request: Request) {
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { getSessionUserId } from "@/lib/auth";
+
+export async function POST(request: NextRequest) {
+  const userId = getSessionUserId(request);
+
+  if (!userId) {
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401 }
+    );
+  }
+
   let body: unknown;
 
   try {
@@ -13,49 +24,43 @@ export async function POST(request: Request) {
     );
   }
 
+  if (typeof body !== "object" || body === null) {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 }
+    );
+  }
+
+  const { challengeId, severity, evidence } = body as {
+    challengeId?: unknown;
+    severity?: unknown;
+    evidence?: unknown;
+  };
+
+  if (
+    typeof challengeId !== "string" ||
+    !challengeId ||
+    typeof severity !== "string" ||
+    !severity ||
+    typeof evidence !== "string" ||
+    !evidence
+  ) {
+    return NextResponse.json(
+      { error: "challengeId, severity, and evidence are required" },
+      { status: 400 }
+    );
+  }
+
   try {
-    if (typeof body !== "object" || body === null) {
-      return NextResponse.json(
-        { error: "Invalid JSON body" },
-        { status: 400 }
-      );
-    }
-
-    const {
-      userId,
-      challengeId,
-      severity,
-      evidence,
-    } = body as {
-      userId?: string;
-      challengeId?: string;
-      severity?: string;
-      evidence?: string;
-    };
-
-    if (!userId || !challengeId || !severity || !evidence) {
-      return NextResponse.json(
-        {
-          error:
-            "userId, challengeId, severity, and evidence are required",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Check user
-    const user = await db.orm.public.User
-      .where({ id: userId })
-      .first();
+    const user = await db.orm.public.User.where({ id: userId }).first();
 
     if (!user) {
       return NextResponse.json(
         { error: "User not found" },
-        { status: 404 }
+        { status: 401 }
       );
     }
 
-    // Check challenge
     const challenge = await db.orm.public.Challenge
       .where({ id: challengeId })
       .first();
@@ -70,8 +75,9 @@ export async function POST(request: Request) {
     let isCorrect = false;
 
     if (challenge.slug === "idor") {
+      // Seed data defines Alice's MacBook as order ID 1.
       const aliceOrder = await db.orm.public.Order
-        .where({ id: 5 })
+        .where({ id: 1 })
         .first();
 
       if (
@@ -95,13 +101,10 @@ export async function POST(request: Request) {
         normalizedEvidence.includes("429") ||
         normalizedEvidence.includes("rate limit");
 
-      if (
+      isCorrect =
         severity === "HIGH" &&
         mentionsFailedAttempts &&
-        mentionsMissingRateLimit
-      ) {
-        isCorrect = true;
-      }
+        mentionsMissingRateLimit;
     }
 
     if (challenge.slug === "email-enumeration") {
@@ -113,12 +116,7 @@ export async function POST(request: Request) {
         normalizedEvidence.includes("email registered") ||
         normalizedEvidence.includes("account exists");
 
-      if (
-        severity === "HIGH" &&
-        mentionsEnumeration
-      ) {
-        isCorrect = true;
-      }
+      isCorrect = severity === "HIGH" && mentionsEnumeration;
     }
 
     const finding = await db.orm.public.Finding.create({

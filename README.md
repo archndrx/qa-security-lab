@@ -66,11 +66,14 @@ Bob   → Order #1 → 403 Forbidden
 Bob   → Order #3 → 200 OK
 ```
 
+The current user is derived from a signed `qa_session` cookie issued at login. A client-supplied `X-User-ID` header is ignored.
+
 Automated coverage includes:
 
 * Authorized resource access
 * Unauthorized resource access
-* Missing authentication context
+* Missing authentication context (no session)
+* Forged `X-User-ID` header
 * Invalid resource ID
 
 Test file:
@@ -81,7 +84,7 @@ tests/security/idor.spec.ts
 
 Result:
 
-**5 passed**
+**6 passed**
 
 ---
 
@@ -102,7 +105,9 @@ The current local implementation uses a threshold of:
 5 attempts / 60 seconds
 ```
 
-The Playwright test verifies that repeated failed login attempts eventually receive HTTP `429`.
+The Playwright test verifies that repeated failed login attempts eventually receive HTTP `429`. The limit is tracked per email address.
+
+Passwords are stored as bcrypt hashes and verified with `bcrypt.compare`.
 
 Test file:
 
@@ -196,7 +201,7 @@ The challenge uses a coupon with:
 maxUses = 1
 ```
 
-Two concurrent requests attempt to redeem the same coupon.
+Two authenticated users (Alice and Bob, each with their own session) concurrently attempt to redeem the same coupon. The redeeming user comes from the session, not from the request body.
 
 The vulnerable design separates the usage check from the update, allowing multiple requests to observe the same state.
 
@@ -243,11 +248,17 @@ A security finding contains:
 * Evidence
 * Correct/incorrect classification
 
+Findings are submitted and read using the authenticated session user; a `userId` in the request body cannot impersonate another user.
+
 Automated tests verify that:
 
 ```text
-Correct security finding → Score 100
-Incorrect finding         → Score 0
+Correct security finding              → Score 100
+Incorrect finding                     → Score 0
+Unauthenticated submission            → Rejected
+Forged userId                         → Cannot impersonate another user
+Result endpoint                       → Latest finding of the session user only
+Another user's finding                → Not exposed
 ```
 
 Test file:
@@ -258,7 +269,7 @@ tests/security/finding.spec.ts
 
 Result:
 
-**3 passed**
+**7 passed**
 
 ---
 
@@ -271,13 +282,23 @@ The vulnerability was reproduced manually and verified against PostgreSQL.
 The endpoint was then remediated using an explicit allowlist that updates only
 the `name` field.
 
-Automated regression tests verify that protected attributes remain unchanged
-while normal profile updates continue to work.
+The endpoint now requires an authenticated session and derives the acting user
+from the signed `qa_session` cookie, so a forged `userId` in the body is ignored.
 
-**Status:** Remediated; 2 regression tests passing.
+Automated regression tests verify that:
 
-**Remaining concern:** Authentication and authorization are not yet implemented
-for this profile endpoint. This lab endpoint must not be treated as production-ready.
+* Protected attributes remain unchanged
+* Normal profile updates continue to work
+* Alice cannot update Bob by forging `userId`
+* A tampered session cookie is rejected (`401`)
+* Requests without a valid session are rejected (`401`)
+
+Each test creates its own temporary user, so the per-email login rate limit never couples tests together.
+
+**Status:** Remediated; 5 regression tests passing.
+
+**Remaining concern:** The session is a simple HMAC-signed cookie for this lab. It has no
+server-side revocation or rotation, and this lab app must not be treated as production-ready.
 
 ---
 
@@ -293,11 +314,11 @@ Current coverage:
 | Rate Limit                   |      1 | PASS        |
 | Email Enumeration            |      1 | PASS        |
 | Open Redirect                |      5 | PASS        |
-| Finding & Scoring            |      3 | PASS        |
+| Finding & Scoring            |      7 | PASS        |
 | Race Condition               |      1 | PASS        |
-| Mass Assignment              |      2 | PASS        |
+| Mass Assignment              |      5 | PASS        |
 | Sensitive Data Exposure      |      3 | PASS        |
-| **Total**                    | **21** | **21 PASS** |
+| **Total**                    | **29** | **29 PASS** |
 
 Run the complete security suite:
 
@@ -308,9 +329,9 @@ npx playwright test tests/security
 Latest confirmed execution:
 
 ```text
-Running 21 tests using 6 workers
+Running 29 tests using 6 workers
 
-21 passed (2.1s)
+29 passed (13.2s)
 0 failed
 ```
 
@@ -363,7 +384,8 @@ Generated Allure artifacts are excluded from Git through `.gitignore`.
 | ------------------ | -------------------------------------- | ------------------------ | --------- |
 | IDOR               | User accesses another user's order     | `403 Forbidden`          | ✅         |
 | IDOR               | User accesses own order                | `200 OK`                 | ✅         |
-| IDOR               | Missing user identity                  | `401 Unauthorized`       | ✅         |
+| IDOR               | Missing session                        | `401 Unauthorized`       | ✅         |
+| IDOR               | Forged `X-User-ID` header              | `401 Unauthorized`       | ✅         |
 | IDOR               | Invalid order ID                       | `400 Bad Request`        | ✅         |
 | Rate Limit         | Repeated failed login attempts         | `429 Too Many Requests`  | ✅         |
 | Email Enumeration  | Existing/non-existing email comparison | Generic response         | ✅         |
@@ -376,6 +398,9 @@ Generated Allure artifacts are excluded from Git through `.gitignore`.
 | Finding Validation | Incorrect finding                      | Score `0`                | ✅         |
 | Race Condition     | Concurrent coupon redemption           | Only one succeeds        | ✅         |
 | Mass Assignment    | Modify protected profile attributes    | Protected fields unchanged | ✅       |
+| Mass Assignment    | Forge `userId` to update another user  | Other user unchanged     | ✅         |
+| Mass Assignment    | Tampered or missing session cookie     | `401 Unauthorized`       | ✅         |
+| Finding Validation | Unauthenticated submission / forged `userId` | Rejected / not impersonated | ✅   |
 | Sensitive Data Exposure | Successful login response         | No password, hash, or token | ✅      |
 | Sensitive Data Exposure | Failed login response             | No sensitive data echoed | ✅         |
 | Sensitive Data Exposure | Invalid JSON body                 | `400`, no internal details | ✅       |
@@ -511,6 +536,7 @@ qa-security-lab/
 │   │       └── redirect/
 │   │
 │   ├── lib/
+│   │   ├── auth.ts
 │   │   ├── db.ts
 │   │   └── pg.ts
 │   │
@@ -524,7 +550,8 @@ qa-security-lab/
 │       ├── config/
 │       │   └── test-data.ts
 │       ├── helpers/
-│       │   └── security.ts
+│       │   ├── security.ts
+│       │   └── session.ts
 │       ├── email-enumeration.spec.ts
 │       ├── finding.spec.ts
 │       ├── idor.spec.ts
@@ -573,8 +600,10 @@ Create `.env`:
 
 ```env
 DATABASE_URL="postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public"
-IDOR_SECURITY_FIX=true
+SESSION_SECRET="<random string of at least 32 characters>"
 ```
+
+`SESSION_SECRET` signs the `qa_session` cookie. Generate one with `openssl rand -hex 32`. In CI a random value is generated on every run. Never commit a real secret.
 
 ### 4. Initialize the database
 
@@ -658,6 +687,8 @@ Coupon
 
 The race-condition test uses a unique generated coupon per execution and removes it during cleanup.
 
+Seed users share the password `password123`, stored as a bcrypt hash (re-run `node reset-seed.mjs && node seed.mjs` after pulling this change). The mass-assignment tests create and delete their own temporary users.
+
 ---
 
 ## 📊 QA Perspective
@@ -713,6 +744,7 @@ The project demonstrates practical QA activities such as:
 * [x] CI/CD security test execution
 * [x] Allure security test reporting
 * [x] Mass Assignment
+* [x] Session-based authentication, bcrypt password hashing
 * [x] Sensitive Data Exposure
 
 ### Planned

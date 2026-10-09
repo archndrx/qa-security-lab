@@ -1,31 +1,26 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-
-console.log("ENV TEST:", {
-  cwd: process.cwd(),
-  fix: process.env.IDOR_SECURITY_FIX,
-});
+import { getSessionUserId } from "@/lib/auth";
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-
   const orderId = Number(id);
 
-  if (!Number.isInteger(orderId)) {
+  if (!Number.isInteger(orderId) || orderId <= 0) {
     return NextResponse.json(
       { error: "Invalid order ID" },
       { status: 400 }
     );
   }
 
-  const currentUserId = request.headers.get("X-User-ID");
+  const currentUserId = getSessionUserId(request);
 
   if (!currentUserId) {
     return NextResponse.json(
-      { error: "Missing X-User-ID header" },
+      { error: "Authentication required" },
       { status: 401 }
     );
   }
@@ -41,21 +36,7 @@ export async function GET(
     );
   }
 
-  console.log(
-    "IDOR_SECURITY_FIX:",
-    process.env.IDOR_SECURITY_FIX
-  );
-
-  console.log("DEBUG IDOR:", {
-    env: process.env.IDOR_SECURITY_FIX,
-    currentUserId,
-    orderUserId: order.userId,
-  });
-
-  const securityFixEnabled =
-    process.env.IDOR_SECURITY_FIX === "true";
-
-  if (securityFixEnabled && order.userId !== currentUserId) {
+  if (order.userId !== currentUserId) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403 }

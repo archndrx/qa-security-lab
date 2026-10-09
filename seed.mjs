@@ -1,6 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import "dotenv/config";
 import fs from "fs";
+import bcrypt from "bcryptjs";
 
 globalThis.Temporal = Temporal;
 
@@ -19,10 +20,12 @@ const db = postgres({
 try {
   console.log("Seeding database...");
 
+  const passwordHash = await bcrypt.hash("password123", 12);
+
   const alice = await db.orm.public.User.create({
     id: "test-alice",
     email: "alice@lab.test",
-    password: "password123",
+    password: passwordHash,
     name: "Alice",
     isAdmin: false,
     isVerified: true,
@@ -33,7 +36,7 @@ try {
   const bob = await db.orm.public.User.create({
     id: "test-bob",
     email: "bob@lab.test",
-    password: "password123",
+    password: passwordHash,
     name: "Bob",
     isAdmin: false,
     isVerified: false,

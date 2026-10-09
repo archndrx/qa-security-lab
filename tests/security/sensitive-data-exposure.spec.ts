@@ -56,14 +56,25 @@ test.describe("Sensitive Data Exposure", () => {
     expect(responseText).not.toContain("password123");
   });
 
+
   test("should not expose internal error details for invalid JSON", async ({
     request,
   }) => {
+    // Authenticate first so the test reaches JSON parsing.
+    const loginResponse = await request.post("/api/auth/login", {
+      data: {
+        email: "alice@lab.test",
+        password: "password123",
+      },
+    });
+
+    expect(loginResponse.status()).toBe(200);
+
     const response = await request.post("/api/findings", {
       headers: {
         "Content-Type": "application/json",
       },
-      data: '{"userId":',
+      data: '{"challengeId":',
     });
 
     expect(response.status()).toBe(400);

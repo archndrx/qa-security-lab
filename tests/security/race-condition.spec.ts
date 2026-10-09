@@ -58,52 +58,71 @@ test.describe("Race Condition Security", () => {
     });
 
     test("should allow only one concurrent coupon redemption", async ({
-        request,
+        playwright,
     }) => {
-        const [response1, response2] = await Promise.all([
-            request.post("/api/coupons/redeem", {
-                data: {
-                    userId: "test-alice",
-                    code: couponCode,
-                },
-            }),
+        const baseURL = "http://localhost:3000";
+        const aliceRequest = await playwright.request.newContext({ baseURL });
+        const bobRequest = await playwright.request.newContext({ baseURL });
 
-            request.post("/api/coupons/redeem", {
-                data: {
-                    userId: "test-bob",
-                    code: couponCode,
-                },
-            }),
-        ]);
+        try {
+            const [aliceLogin, bobLogin] = await Promise.all([
+                aliceRequest.post("/api/auth/login", {
+                    data: {
+                        email: "alice@lab.test",
+                        password: "password123",
+                    },
+                }),
+                bobRequest.post("/api/auth/login", {
+                    data: {
+                        email: "bob@lab.test",
+                        password: "password123",
+                    },
+                }),
+            ]);
 
-        const statuses = [
-            response1.status(),
-            response2.status(),
-        ].sort();
+            expect(
+                aliceLogin.status(),
+                `Alice login failed: ${await aliceLogin.text()}`
+            ).toBe(200);
 
-        expect(statuses).toEqual([200, 409]);
+            expect(
+                bobLogin.status(),
+                `Bob login failed: ${await bobLogin.text()}`
+            ).toBe(200);
 
-        const couponResult = await pool.query<{
-            usedCount: number;
-            maxUses: number;
-        }>(
-            `
-      SELECT
-        "usedCount",
-        "maxUses"
+            const [response1, response2] = await Promise.all([
+                aliceRequest.post("/api/coupons/redeem", {
+                    data: { code: couponCode },
+                }),
+                bobRequest.post("/api/coupons/redeem", {
+                    data: { code: couponCode },
+                }),
+            ]);
+
+            expect(
+                [response1.status(), response2.status()].sort()
+            ).toEqual([200, 409]);
+
+            const couponResult = await pool.query<{
+                usedCount: number;
+                maxUses: number;
+            }>(
+                `
+      SELECT "usedCount", "maxUses"
       FROM "Coupon"
       WHERE "code" = $1
       `,
-            [couponCode]
-        );
+                [couponCode]
+            );
 
-        expect(couponResult.rowCount).toBe(1);
-
-        const coupon = couponResult.rows[0];
-
-        expect(coupon.usedCount).toBe(1);
-        expect(coupon.usedCount).toBeLessThanOrEqual(
-            coupon.maxUses
-        );
+            expect(couponResult.rowCount).toBe(1);
+            expect(couponResult.rows[0].usedCount).toBe(1);
+            expect(couponResult.rows[0].usedCount).toBeLessThanOrEqual(
+                couponResult.rows[0].maxUses
+            );
+        } finally {
+            await aliceRequest.dispose();
+            await bobRequest.dispose();
+        }
     });
 });

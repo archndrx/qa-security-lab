@@ -1,31 +1,51 @@
-import { NextResponse } from "next/server";
+
+import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { pgPool } from "@/lib/pg";
+import { getSessionUserId } from "@/lib/auth";
 
-export async function POST(request: Request) {
-  const body = await request.json();
+export async function POST(request: NextRequest) {
+  const userId = getSessionUserId(request);
 
-  const { userId, code } = body;
-
-  if (!userId || !code) {
+  if (!userId) {
     return NextResponse.json(
-      { error: "userId and code are required" },
+      { error: "Authentication required" },
+      { status: 401 }
+    );
+  }
+
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
       { status: 400 }
     );
   }
 
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("code" in body) ||
+    typeof body.code !== "string" ||
+    !body.code.trim()
+  ) {
+    return NextResponse.json(
+      { error: "code is required" },
+      { status: 400 }
+    );
+  }
+
+  const code = body.code.trim();
   const client = await pgPool.connect();
 
   try {
     await client.query("BEGIN");
 
-    // Validate user
     const userResult = await client.query(
-      `
-      SELECT "id"
-      FROM "User"
-      WHERE "id" = $1
-      `,
+      `SELECT "id" FROM "User" WHERE "id" = $1`,
       [userId]
     );
 
@@ -34,19 +54,10 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         { error: "User not found" },
-        { status: 404 }
+        { status: 401 }
       );
     }
 
-    /*
-     * Atomic update:
-     *
-     * Only one concurrent request can increment the coupon
-     * when usedCount is already at maxUses.
-     *
-     * PostgreSQL row locking guarantees that concurrent
-     * transactions cannot both pass this condition.
-     */
     const couponResult = await client.query<{
       id: string;
       code: string;
@@ -59,12 +70,7 @@ export async function POST(request: Request) {
       SET "usedCount" = "usedCount" + 1
       WHERE "code" = $1
         AND "usedCount" < "maxUses"
-      RETURNING
-        "id",
-        "code",
-        "discount",
-        "usedCount",
-        "maxUses"
+      RETURNING "id", "code", "discount", "usedCount", "maxUses"
       `,
       [code]
     );
@@ -80,13 +86,11 @@ export async function POST(request: Request) {
 
     const coupon = couponResult.rows[0];
 
-    // Record successful redemption in the same transaction.
     await client.query(
       `
       INSERT INTO "CouponRedemption"
         ("id", "couponId", "userId", "createdAt")
-      VALUES
-        ($1, $2, $3, NOW())
+      VALUES ($1, $2, $3, NOW())
       `,
       [randomUUID(), coupon.id, userId]
     );
@@ -100,7 +104,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     await client.query("ROLLBACK");
-
     console.error("Coupon redemption error:", error);
 
     return NextResponse.json(
