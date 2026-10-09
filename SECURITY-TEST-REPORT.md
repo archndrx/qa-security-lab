@@ -6,7 +6,7 @@ This project is a **QA Security Playground** designed to demonstrate practical s
 
 The security test suite is implemented using **Playwright** and covers common web application security scenarios.
 
-The project currently contains **18 automated security tests** covering:
+The project currently contains **21 automated security tests** covering:
 
 * IDOR / Broken Access Control
 * Rate Limit
@@ -14,8 +14,8 @@ The project currently contains **18 automated security tests** covering:
 * Open Redirect
 * Race Condition
 * Finding & Scoring
-
 * Mass Assignment
+* Sensitive Data Exposure
 
 Allure is used to generate a visual test report from the Playwright execution results.
 
@@ -30,7 +30,8 @@ Allure is used to generate a visual test report from the Playwright execution re
 | Finding & Scoring            |          3 | PASS        |
 | Race Condition               |          1 | PASS        |
 | Mass Assignment              |          2 | PASS        |
-| **Total**                    |     **18** | **18 PASS** |
+| Sensitive Data Exposure      |          3 | PASS        |
+| **Total**                    |     **21** | **21 PASS** |
 
 ---
 
@@ -422,6 +423,8 @@ tests/security/
 ├── email-enumeration.spec.ts
 ├── open-redirect.spec.ts
 ├── race-condition.spec.ts
+├── mass-assignment.spec.ts
+├── sensitive-data-exposure.spec.ts
 └── finding.spec.ts
 ```
 
@@ -552,34 +555,80 @@ a client-supplied `userId`. This lab endpoint is not production-ready.
 
 ---
 
-# 12. Security Test Results
+# 12. Sensitive Data Exposure
+
+## Vulnerability
+
+Sensitive Data Exposure occurs when API responses reveal secrets or internal
+details such as passwords, password hashes, tokens, stack traces, or
+parser errors.
+
+## Security Controls
+
+* Login responses contain only a message and `userId`.
+* Failed logins return a generic `Invalid credentials` error.
+* Malformed JSON sent to `/api/findings` returns `400 Invalid JSON body`.
+* Unexpected server errors return a generic `Failed to create finding`
+  message; details are logged server-side only.
+
+## Automated Tests
+
+```text
+tests/security/sensitive-data-exposure.spec.ts
+```
+
+| Scenario                  | Expected Result                                  |
+| ------------------------- | ------------------------------------------------ |
+| Successful login          | No password, hash, token, or user object exposed |
+| Failed login              | Generic error; submitted password not echoed     |
+| Invalid JSON body         | `400` with no `detail` or `stack` fields         |
+
+### Test Isolation
+
+The rate limit is keyed by email and stored in module-level memory. The
+rate limit test therefore uses a dedicated email
+(`rate-limit-test@lab.test`) so it cannot lock out the valid Alice account
+used by these tests when they run in parallel.
+
+### Verification Limits
+
+The generic `500 Failed to create finding` response is an implemented
+control, but no automated test currently triggers an HTTP 500 to verify it.
+Only the successful login, failed login, and invalid JSON scenarios are
+covered by regression tests.
+
+**Result:** 3/3 tests passed.
+
+---
+
+# 13. Security Test Results
 
 The complete automated security test suite currently contains:
 
-**18 security tests**
+**21 security tests**
 
 Latest confirmed execution:
 
 ```text
-Running 18 tests using 6 workers
+Running 21 tests using 6 workers
 
-18 passed
+21 passed (2.1s)
 0 failed
 ```
 
 Execution time:
 
 ```text
-5.8s
+2.1s
 ```
 
 ### Final Result
 
-**18/18 security tests passed**
+**21/21 security tests passed**
 
 ---
 
-# 13. CI/CD Integration
+# 14. CI/CD Integration
 
 The security test suite is integrated into GitHub Actions.
 
@@ -599,7 +648,7 @@ The pipeline is intended to function as a security regression gate so that secur
 
 ---
 
-# 13. Current Coverage
+# 15. Current Coverage
 
 Current implemented security scenarios:
 
@@ -615,16 +664,16 @@ Current implemented security scenarios:
 | Allure Reporting             | Implemented |
 | GitHub Actions CI            | Implemented |
 | Mass Assignment              | Remediated  |
+| Sensitive Data Exposure      | Implemented |
 
 ---
 
-# 14. Future Improvements
+# 16. Future Improvements
 
 Planned improvements include:
 
 * Authentication and authorization for profile updates
 * Deriving user identity from a verified session or token
-* Sensitive Data Exposure
 * Role-based Access Control / Privilege Escalation
 * Expanded API security scenarios
 * Expanded CI security gates
@@ -635,7 +684,7 @@ Planned improvements include:
 
 ---
 
-# 15. Conclusion
+# 17. Conclusion
 
 The QA Security Playground demonstrates an end-to-end security testing workflow:
 
@@ -661,6 +710,6 @@ Integrate With CI/CD
 
 The current implementation successfully validates:
 
-**18 automated security tests with 0 failures.**
+**21 automated security tests with 0 failures.**
 
 The project is intentionally designed as a learning and portfolio environment rather than a production security platform.

@@ -2,15 +2,36 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 export async function POST(request: Request) {
+  let body: unknown;
+
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    if (typeof body !== "object" || body === null) {
+      return NextResponse.json(
+        { error: "Invalid JSON body" },
+        { status: 400 }
+      );
+    }
 
     const {
       userId,
       challengeId,
       severity,
       evidence,
-    } = body;
+    } = body as {
+      userId?: string;
+      challengeId?: string;
+      severity?: string;
+      evidence?: string;
+    };
 
     if (!userId || !challengeId || !severity || !evidence) {
       return NextResponse.json(
@@ -113,10 +134,7 @@ export async function POST(request: Request) {
     console.error("FINDING CREATE ERROR:", error);
 
     return NextResponse.json(
-      {
-        error: "Failed to create finding",
-        detail: String(error),
-      },
+      { error: "Failed to create finding" },
       { status: 500 }
     );
   }

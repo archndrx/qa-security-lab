@@ -295,8 +295,9 @@ Current coverage:
 | Open Redirect                |      5 | PASS        |
 | Finding & Scoring            |      3 | PASS        |
 | Race Condition               |      1 | PASS        |
-| Mass Assignment              |     2  | PASS        |
-| **Total**                    | **18** | **18 PASS** |
+| Mass Assignment              |      2 | PASS        |
+| Sensitive Data Exposure      |      3 | PASS        |
+| **Total**                    | **21** | **21 PASS** |
 
 Run the complete security suite:
 
@@ -307,9 +308,9 @@ npx playwright test tests/security
 Latest confirmed execution:
 
 ```text
-Running 18 tests using 6 workers
+Running 21 tests using 6 workers
 
-18 passed
+21 passed (2.1s)
 0 failed
 ```
 
@@ -375,6 +376,9 @@ Generated Allure artifacts are excluded from Git through `.gitignore`.
 | Finding Validation | Incorrect finding                      | Score `0`                | ✅         |
 | Race Condition     | Concurrent coupon redemption           | Only one succeeds        | ✅         |
 | Mass Assignment    | Modify protected profile attributes    | Protected fields unchanged | ✅       |
+| Sensitive Data Exposure | Successful login response         | No password, hash, or token | ✅      |
+| Sensitive Data Exposure | Failed login response             | No sensitive data echoed | ✅         |
+| Sensitive Data Exposure | Invalid JSON body                 | `400`, no internal details | ✅       |
 
 ---
 
@@ -466,6 +470,7 @@ The security suite is intended to act as a regression gate against security-rela
 * Open Redirect
 * Race Condition
 * Mass Assignment
+* Sensitive Data Exposure
 
 ### Reporting
 
@@ -526,7 +531,8 @@ qa-security-lab/
 │       ├── open-redirect.spec.ts
 │       ├── mass-assignment.spec.ts
 │       ├── race-condition.spec.ts
-│       └── rate-limit.spec.ts
+│       ├── rate-limit.spec.ts
+│       └── sensitive-data-exposure.spec.ts
 │
 ├── SECURITY-TEST-REPORT.md
 ├── seed.mjs
@@ -707,10 +713,10 @@ The project demonstrates practical QA activities such as:
 * [x] CI/CD security test execution
 * [x] Allure security test reporting
 * [x] Mass Assignment
+* [x] Sensitive Data Exposure
 
 ### Planned
 
-* [ ] Sensitive Data Exposure
 * [ ] Role-based Access Control / Privilege Escalation
 * [ ] Expanded API security scenarios
 * [ ] Expanded CI security gates

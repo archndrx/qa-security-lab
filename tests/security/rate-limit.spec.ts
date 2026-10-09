@@ -7,7 +7,7 @@ test.describe("Rate Limit Security Tests", () => {
     for (let i = 0; i < 10; i++) {
       const response = await request.post("/api/auth/login", {
         data: {
-          email: "alice@lab.test",
+          email: "rate-limit-test@lab.test",
           password: "wrong",
         },
       });
