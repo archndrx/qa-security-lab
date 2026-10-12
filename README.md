@@ -302,6 +302,37 @@ server-side revocation or rotation, and this lab app must not be treated as prod
 
 ---
 
+### 8. Role-based Access Control / Privilege Escalation
+
+`GET /api/admin/users` is restricted to administrators. The acting user comes from the signed
+session cookie, and `isAdmin` is read from the database on every request (not from the cookie),
+so revoking admin rights takes effect immediately. The response never includes the `password` field.
+
+```text
+No session      → 401 Unauthorized
+Regular user    → 403 Forbidden
+Admin           → 200 OK
+```
+
+Automated coverage includes:
+
+* Unauthenticated request is rejected
+* Regular user is denied
+* Admin can list users, and `password` is not exposed
+* Mass-assignment of `isAdmin` via the profile endpoint does not grant admin access (verified in the database)
+
+Test file:
+
+```text
+tests/security/rbac.spec.ts
+```
+
+Result:
+
+**4 passed**
+
+---
+
 ## 🧪 Automated Security Testing
 
 Security regression tests are implemented using **Playwright**.
@@ -310,7 +341,7 @@ Current coverage:
 
 | Area                         |  Tests | Result      |
 | ---------------------------- | -----: | ----------- |
-| IDOR / Broken Access Control |      5 | PASS        |
+| IDOR / Broken Access Control |      6 | PASS        |
 | Rate Limit                   |      1 | PASS        |
 | Email Enumeration            |      1 | PASS        |
 | Open Redirect                |      5 | PASS        |
@@ -318,7 +349,8 @@ Current coverage:
 | Race Condition               |      1 | PASS        |
 | Mass Assignment              |      5 | PASS        |
 | Sensitive Data Exposure      |      3 | PASS        |
-| **Total**                    | **29** | **29 PASS** |
+| RBAC / Privilege Escalation  |      4 | PASS        |
+| **Total**                    | **33** | **33 PASS** |
 
 Run the complete security suite:
 
@@ -329,9 +361,9 @@ npx playwright test tests/security
 Latest confirmed execution:
 
 ```text
-Running 29 tests using 6 workers
+Running 33 tests using 6 workers
 
-29 passed (13.2s)
+33 passed (14.7s)
 0 failed
 ```
 
@@ -404,6 +436,10 @@ Generated Allure artifacts are excluded from Git through `.gitignore`.
 | Sensitive Data Exposure | Successful login response         | No password, hash, or token | ✅      |
 | Sensitive Data Exposure | Failed login response             | No sensitive data echoed | ✅         |
 | Sensitive Data Exposure | Invalid JSON body                 | `400`, no internal details | ✅       |
+| RBAC               | Unauthenticated admin request          | `401 Unauthorized`       | ✅         |
+| RBAC               | Regular user calls admin endpoint      | `403 Forbidden`          | ✅         |
+| RBAC               | Admin lists users                      | `200 OK`, no passwords   | ✅         |
+| RBAC               | Mass-assign `isAdmin` then call admin  | `403 Forbidden`          | ✅         |
 
 ---
 
@@ -496,6 +532,7 @@ The security suite is intended to act as a regression gate against security-rela
 * Race Condition
 * Mass Assignment
 * Sensitive Data Exposure
+* Role-based Access Control / Privilege Escalation
 
 ### Reporting
 
@@ -521,6 +558,8 @@ qa-security-lab/
 ├── src/
 │   ├── app/
 │   │   └── api/
+│   │       ├── admin/
+│   │       │   └── users/
 │   │       ├── auth/
 │   │       │   ├── check-email/
 │   │       │   └── login/
@@ -558,6 +597,7 @@ qa-security-lab/
 │       ├── open-redirect.spec.ts
 │       ├── mass-assignment.spec.ts
 │       ├── race-condition.spec.ts
+│       ├── rbac.spec.ts
 │       ├── rate-limit.spec.ts
 │       └── sensitive-data-exposure.spec.ts
 │
@@ -744,12 +784,12 @@ The project demonstrates practical QA activities such as:
 * [x] CI/CD security test execution
 * [x] Allure security test reporting
 * [x] Mass Assignment
+* [x] Role-based Access Control / Privilege Escalation
 * [x] Session-based authentication, bcrypt password hashing
 * [x] Sensitive Data Exposure
 
 ### Planned
 
-* [ ] Role-based Access Control / Privilege Escalation
 * [ ] Expanded API security scenarios
 * [ ] Expanded CI security gates
 * [ ] Security test evidence and attachments

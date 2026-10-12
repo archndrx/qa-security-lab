@@ -6,7 +6,7 @@ This project is a **QA Security Playground** designed to demonstrate practical s
 
 The security test suite is implemented using **Playwright** and covers common web application security scenarios.
 
-The project currently contains **29 automated security tests** covering:
+The project currently contains **33 automated security tests** covering:
 
 * IDOR / Broken Access Control
 * Rate Limit
@@ -16,6 +16,7 @@ The project currently contains **29 automated security tests** covering:
 * Finding & Scoring
 * Mass Assignment
 * Sensitive Data Exposure
+* Role-based Access Control / Privilege Escalation
 
 Allure is used to generate a visual test report from the Playwright execution results.
 
@@ -31,7 +32,8 @@ Allure is used to generate a visual test report from the Playwright execution re
 | Race Condition               |          1 | PASS        |
 | Mass Assignment              |          5 | PASS        |
 | Sensitive Data Exposure      |          3 | PASS        |
-| **Total**                    |     **29** | **29 PASS** |
+| RBAC / Privilege Escalation  |          4 | PASS        |
+| **Total**                    |     **33** | **33 PASS** |
 
 ---
 
@@ -436,6 +438,7 @@ tests/security/
 ├── open-redirect.spec.ts
 ├── race-condition.spec.ts
 ├── mass-assignment.spec.ts
+├── rbac.spec.ts
 ├── sensitive-data-exposure.spec.ts
 └── finding.spec.ts
 ```
@@ -619,34 +622,89 @@ covered by regression tests.
 
 ---
 
-# 13. Security Test Results
+# 13. Role-based Access Control / Privilege Escalation
+
+## Vulnerability
+
+Privilege escalation occurs when a regular user can reach administrator-only
+functionality, either directly or by modifying their own privilege attributes.
+
+## Security Controls
+
+`GET /api/admin/users` enforces the following checks in order:
+
+| Condition                      | Response |
+| ------------------------------ | -------: |
+| No valid session               |      401 |
+| Session user not in database   |      401 |
+| User is not an administrator   |      403 |
+| User is an administrator       |      200 |
+
+* The acting user comes from the signed `qa_session` cookie.
+* `isAdmin` is read from the database on every request, not stored in the cookie,
+  so revoking admin rights takes effect immediately.
+* The check is strict (`isAdmin === true`), so any other value is denied.
+* The response lists id, email, name, role flags, and creation time; the
+  `password` field is never selected.
+
+## Automated Tests
+
+```text
+tests/security/rbac.spec.ts
+```
+
+| Scenario                                          |                Expected |
+| ------------------------------------------------- | ----------------------: |
+| Unauthenticated request                           |                     401 |
+| Regular user                                      |                     403 |
+| Admin user                                        | 200, no `password` field |
+| Mass-assign `isAdmin: true`, then call admin API  |   403, DB `isAdmin` false |
+
+### Test Isolation
+
+Each test creates a regular user and an admin user with unique IDs and deletes
+them afterward. Sessions are signed directly, so the per-email login rate limit
+is not consumed.
+
+**Result:** 4/4 tests passed.
+
+## Known Limitations
+
+* The admin test checks the `password` field only on the first returned row.
+* There is no test for a validly signed session whose user has been deleted
+  (the "user not found" branch).
+* The endpoint returns at most 100 users.
+
+---
+
+# 14. Security Test Results
 
 The complete automated security test suite currently contains:
 
-**29 security tests**
+**33 security tests**
 
 Latest confirmed execution:
 
 ```text
-Running 29 tests using 6 workers
+Running 33 tests using 6 workers
 
-29 passed (13.2s)
+33 passed (14.7s)
 0 failed
 ```
 
 Execution time:
 
 ```text
-13.2s
+14.7s
 ```
 
 ### Final Result
 
-**29/29 security tests passed**
+**33/33 security tests passed**
 
 ---
 
-# 14. CI/CD Integration
+# 15. CI/CD Integration
 
 The security test suite is integrated into GitHub Actions.
 
@@ -666,7 +724,7 @@ The pipeline is intended to function as a security regression gate so that secur
 
 ---
 
-# 15. Current Coverage
+# 16. Current Coverage
 
 Current implemented security scenarios:
 
@@ -685,15 +743,15 @@ Current implemented security scenarios:
 | Session Authentication       | Implemented |
 | Password Hashing (bcrypt)    | Implemented |
 | Sensitive Data Exposure      | Implemented |
+| RBAC / Privilege Escalation  | Implemented |
 
 ---
 
-# 16. Future Improvements
+# 17. Future Improvements
 
 Planned improvements include:
 
 * Server-side session revocation and rotation
-* Role-based Access Control / Privilege Escalation
 * Expanded API security scenarios
 * Expanded CI security gates
 * Security test evidence and attachments
@@ -703,7 +761,7 @@ Planned improvements include:
 
 ---
 
-# 17. Conclusion
+# 18. Conclusion
 
 The QA Security Playground demonstrates an end-to-end security testing workflow:
 
@@ -729,6 +787,6 @@ Integrate With CI/CD
 
 The current implementation successfully validates:
 
-**29 automated security tests with 0 failures.**
+**33 automated security tests with 0 failures.**
 
 The project is intentionally designed as a learning and portfolio environment rather than a production security platform.
