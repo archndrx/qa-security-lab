@@ -69,23 +69,32 @@ jobs:
           DATABASE_URL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public
           IDOR_SECURITY_FIX: "true"
         run: |
-          echo "=== ORDERS API ==="
-          curl -i \
-            -H "X-User-ID: ghllkr7rhyz3wznyz2kxvg7z" \
-            http://localhost:3000/api/orders/9
+          set -euo pipefail
 
-          echo ""
-          echo "=== FINDINGS API ==="
-          curl -i \
+          echo "=== ORDERS API: unauthenticated request must be rejected ==="
+          orders_status=$(curl -sS -o /tmp/orders-response.json \
+            -w "%{http_code}" \
+            http://localhost:3000/api/orders/9)
+
+          echo "Orders status: $orders_status"
+          cat /tmp/orders-response.json
+          test "$orders_status" = "401"
+
+          echo "=== FINDINGS API: unauthenticated request must be rejected ==="
+          findings_status=$(curl -sS -o /tmp/findings-response.json \
+            -w "%{http_code}" \
             -X POST \
             -H "Content-Type: application/json" \
             -d '{
-              "userId":"ghllkr7rhyz3wznyz2kxvg7z",
               "challengeId":"dfp5czb7s8nh0nti4qob12bk",
               "severity":"HIGH",
-              "evidence":"Login returned 401 for failed attempts and did not enforce rate limit with 429."
+              "evidence":"Test evidence"
             }' \
-            http://localhost:3000/api/findings
+            http://localhost:3000/api/findings)
+
+          echo "Findings status: $findings_status"
+          cat /tmp/findings-response.json
+          test "$findings_status" = "401"
 
       - name: Run security tests
         env:
@@ -93,4 +102,4 @@ jobs:
           IDOR_SECURITY_FIX: "true"
         run: |
           cat app.log
-          npx playwright test tests/security
+          npx playwright test
