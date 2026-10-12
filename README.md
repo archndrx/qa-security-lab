@@ -318,7 +318,8 @@ Automated coverage includes:
 
 * Unauthenticated request is rejected
 * Regular user is denied
-* Admin can list users, and `password` is not exposed
+* Admin can list users, and no row exposes `password` or `passwordHash`
+* A valid session for a deleted user is rejected (`401`, "User not found")
 * Mass-assignment of `isAdmin` via the profile endpoint does not grant admin access (verified in the database)
 
 Test file:
@@ -329,7 +330,7 @@ tests/security/rbac.spec.ts
 
 Result:
 
-**4 passed**
+**5 passed**
 
 ---
 
@@ -349,21 +350,24 @@ Current coverage:
 | Race Condition               |      1 | PASS        |
 | Mass Assignment              |      5 | PASS        |
 | Sensitive Data Exposure      |      3 | PASS        |
-| RBAC / Privilege Escalation  |      4 | PASS        |
-| **Total**                    | **33** | **33 PASS** |
+| RBAC / Privilege Escalation  |      5 | PASS        |
+| Findings error handling      |      1 | PASS        |
+| **Total**                    | **35** | **35 PASS** |
 
-Run the complete security suite:
+Run the complete suite (35 tests):
 
 ```bash
-npx playwright test tests/security
+npx playwright test
 ```
+
+`npx playwright test tests/security` runs only the 34 tests in the security directory. The findings error-handling test lives in `tests/` and is skipped by that narrower command.
 
 Latest confirmed execution:
 
 ```text
-Running 33 tests using 6 workers
+Running 35 tests using 6 workers
 
-33 passed (14.7s)
+35 passed (12.8s)
 0 failed
 ```
 
@@ -439,7 +443,9 @@ Generated Allure artifacts are excluded from Git through `.gitignore`.
 | RBAC               | Unauthenticated admin request          | `401 Unauthorized`       | ✅         |
 | RBAC               | Regular user calls admin endpoint      | `403 Forbidden`          | ✅         |
 | RBAC               | Admin lists users                      | `200 OK`, no passwords   | ✅         |
+| RBAC               | Valid session for a deleted user       | `401 Unauthorized`       | ✅         |
 | RBAC               | Mass-assign `isAdmin` then call admin  | `403 Forbidden`          | ✅         |
+| Error Handling     | Finding creation fails internally      | Generic `500`, no details | ✅        |
 
 ---
 
@@ -575,6 +581,8 @@ qa-security-lab/
 │   │       └── redirect/
 │   │
 │   ├── lib/
+│   │   ├── findings/
+│   │   │   └── handler.ts
 │   │   ├── auth.ts
 │   │   ├── db.ts
 │   │   └── pg.ts
@@ -585,6 +593,7 @@ qa-security-lab/
 │       └── contract.d.ts
 │
 ├── tests/
+│   ├── findings-error-handling.spec.ts
 │   └── security/
 │       ├── config/
 │       │   └── test-data.ts

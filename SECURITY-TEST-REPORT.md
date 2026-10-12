@@ -6,7 +6,7 @@ This project is a **QA Security Playground** designed to demonstrate practical s
 
 The security test suite is implemented using **Playwright** and covers common web application security scenarios.
 
-The project currently contains **33 automated security tests** covering:
+The project currently contains **35 automated security tests** covering:
 
 * IDOR / Broken Access Control
 * Rate Limit
@@ -17,6 +17,7 @@ The project currently contains **33 automated security tests** covering:
 * Mass Assignment
 * Sensitive Data Exposure
 * Role-based Access Control / Privilege Escalation
+* Error Handling (generic 500 responses)
 
 Allure is used to generate a visual test report from the Playwright execution results.
 
@@ -32,8 +33,9 @@ Allure is used to generate a visual test report from the Playwright execution re
 | Race Condition               |          1 | PASS        |
 | Mass Assignment              |          5 | PASS        |
 | Sensitive Data Exposure      |          3 | PASS        |
-| RBAC / Privilege Escalation  |          4 | PASS        |
-| **Total**                    |     **33** | **33 PASS** |
+| RBAC / Privilege Escalation  |          5 | PASS        |
+| Findings error handling      |          1 | PASS        |
+| **Total**                    |     **35** | **35 PASS** |
 
 ---
 
@@ -611,14 +613,22 @@ rate limit test therefore uses a dedicated email
 (`rate-limit-test@lab.test`) so it cannot lock out the valid Alice account
 used by these tests when they run in parallel.
 
-### Verification Limits
+### Error Handling Verification
 
-The generic `500 Failed to create finding` response is an implemented
-control, but no automated test currently triggers an HTTP 500 to verify it.
-Only the successful login, failed login, and invalid JSON scenarios are
-covered by regression tests.
+The generic `500 Failed to create finding` response is verified by
+`tests/findings-error-handling.spec.ts`. The findings POST handler was moved to
+`src/lib/findings/handler.ts` as a factory with injected dependencies, so the
+test can supply a mock database whose `Finding.create` throws an error
+containing internal SQL details. The test asserts that:
 
-**Result:** 3/3 tests passed.
+* the response is `500` with exactly `{ "error": "Failed to create finding" }`
+* the response does not contain the internal error message or a stack trace
+* the error is logged server-side once
+
+This is a handler-level test with a mock database, not an end-to-end request
+against a running server. It lives in `tests/`, outside `tests/security/`.
+
+**Result:** 3/3 Sensitive Data Exposure tests and 1/1 error-handling test passed.
 
 ---
 
@@ -657,7 +667,8 @@ tests/security/rbac.spec.ts
 | ------------------------------------------------- | ----------------------: |
 | Unauthenticated request                           |                     401 |
 | Regular user                                      |                     403 |
-| Admin user                                        | 200, no `password` field |
+| Admin user                                        | 200, no password fields in any row |
+| Valid session for a deleted user                  |  401, "User not found" |
 | Mass-assign `isAdmin: true`, then call admin API  |   403, DB `isAdmin` false |
 
 ### Test Isolation
@@ -666,13 +677,10 @@ Each test creates a regular user and an admin user with unique IDs and deletes
 them afterward. Sessions are signed directly, so the per-email login rate limit
 is not consumed.
 
-**Result:** 4/4 tests passed.
+**Result:** 5/5 tests passed.
 
 ## Known Limitations
 
-* The admin test checks the `password` field only on the first returned row.
-* There is no test for a validly signed session whose user has been deleted
-  (the "user not found" branch).
 * The endpoint returns at most 100 users.
 
 ---
@@ -681,26 +689,26 @@ is not consumed.
 
 The complete automated security test suite currently contains:
 
-**33 security tests**
+**35 security tests**
 
 Latest confirmed execution:
 
 ```text
-Running 33 tests using 6 workers
+Running 35 tests using 6 workers
 
-33 passed (14.7s)
+35 passed (12.8s)
 0 failed
 ```
 
 Execution time:
 
 ```text
-14.7s
+12.8s
 ```
 
 ### Final Result
 
-**33/33 security tests passed**
+**35/35 security tests passed**
 
 ---
 
@@ -787,6 +795,6 @@ Integrate With CI/CD
 
 The current implementation successfully validates:
 
-**33 automated security tests with 0 failures.**
+**35 automated security tests with 0 failures.**
 
 The project is intentionally designed as a learning and portfolio environment rather than a production security platform.
