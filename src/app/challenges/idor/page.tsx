@@ -4,16 +4,17 @@ import { useState } from "react";
 
 const USERS = {
   alice: {
-    id: "jyf0p1mpr8uzse8x5n5elu3e",
+    email: "alice@lab.test",
     name: "Alice",
   },
   bob: {
-    id: "hque1xik6a5tpv09jdscwc12",
+    email: "bob@lab.test",
     name: "Bob",
   },
 };
 
-const CHALLENGE_ID = "mdnadfami67fmlhmna70rvv4";
+const DEMO_PASSWORD = "password123";
+const CHALLENGE_ID = "test-challenge-idor";
 
 type Order = {
   id: number;
@@ -32,6 +33,8 @@ type FindingResult = {
 
 export default function IDORChallengePage() {
   const [currentUser, setCurrentUser] = useState<"alice" | "bob">("bob");
+  const [sessionUser, setSessionUser] = useState<"alice" | "bob" | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
   const [orderId, setOrderId] = useState("1");
 
   const [result, setResult] = useState<Order | null>(null);
@@ -40,13 +43,54 @@ export default function IDORChallengePage() {
 
   const [severity, setSeverity] = useState("HIGH");
   const [evidence, setEvidence] = useState(
-    "Bob can access Alice order #1 using GET /api/orders/1. Expected HTTP 403, actual HTTP 200."
+    "As Bob, request GET /api/orders/1, which belongs to Alice. Expected HTTP 403 Forbidden."
   );
 
   const [findingResult, setFindingResult] =
     useState<FindingResult | null>(null);
 
+  async function loginDemoUser(user: "alice" | "bob" = currentUser) {
+    setAuthLoading(true);
+    setError("");
+    setResult(null);
+    setFindingResult(null);
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          email: USERS[user].email,
+          password: DEMO_PASSWORD,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setSessionUser(null);
+        setError(data.error || "Login failed");
+        return;
+      }
+
+      setCurrentUser(user);
+      setSessionUser(user);
+      setError("");
+    } catch {
+      setSessionUser(null);
+      setError("Failed to connect to login API");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
   async function fetchOrder() {
+    if (sessionUser !== currentUser) {
+      setError("Please sign in as the selected demo user first.");
+      return;
+    }
+
     setLoading(true);
     setResult(null);
     setError("");
@@ -54,9 +98,7 @@ export default function IDORChallengePage() {
 
     try {
       const response = await fetch(`/api/orders/${orderId}`, {
-        headers: {
-          "X-User-ID": USERS[currentUser].id,
-        },
+        credentials: "same-origin",
       });
 
       const data = await response.json();
@@ -75,6 +117,11 @@ export default function IDORChallengePage() {
   }
 
   async function submitFinding() {
+    if (sessionUser !== currentUser) {
+      setError("Please sign in as the selected demo user first.");
+      return;
+    }
+
     setLoading(true);
     setError("");
     setFindingResult(null);
@@ -85,8 +132,8 @@ export default function IDORChallengePage() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "same-origin",
         body: JSON.stringify({
-          userId: USERS[currentUser].id,
           challengeId: CHALLENGE_ID,
           severity,
           evidence,
@@ -102,11 +149,7 @@ export default function IDORChallengePage() {
 
       const resultResponse = await fetch(
         "/api/challenges/idor/result",
-        {
-          headers: {
-            "X-User-ID": USERS[currentUser].id,
-          },
-        }
+        { credentials: "same-origin" }
       );
 
       const score = await resultResponse.json();
@@ -159,10 +202,21 @@ export default function IDORChallengePage() {
           </select>
 
           <div className="mt-3 rounded-lg bg-black p-3 text-sm">
-            <span className="text-gray-500">User ID:</span>{" "}
-            <span className="text-green-400">
-              {USERS[currentUser].id}
-            </span>
+            <p className="text-gray-300">
+              Selected account: {USERS[currentUser].email}
+            </p>
+            <p className={sessionUser === currentUser ? "mt-1 text-green-400" : "mt-1 text-yellow-400"}>
+              {sessionUser === currentUser
+                ? `Authenticated as ${USERS[currentUser].name}`
+                : "Not authenticated as the selected user"}
+            </p>
+            <button
+              onClick={() => loginDemoUser(currentUser)}
+              disabled={authLoading || loading}
+              className="mt-3 rounded-lg bg-blue-500 px-4 py-2 font-medium text-white disabled:opacity-50"
+            >
+              {authLoading ? "Signing in..." : `Sign in as ${USERS[currentUser].name}`}
+            </button>
           </div>
         </div>
 
@@ -182,7 +236,7 @@ export default function IDORChallengePage() {
 
             <button
               onClick={fetchOrder}
-              disabled={loading}
+              disabled={loading || authLoading || sessionUser !== currentUser}
               className="rounded-lg bg-white px-5 py-2 text-black font-medium"
             >
               {loading ? "Loading..." : "Get Order"}
@@ -245,7 +299,7 @@ export default function IDORChallengePage() {
 
             <button
               onClick={submitFinding}
-              disabled={loading}
+              disabled={loading || authLoading || sessionUser !== currentUser}
               className="mt-5 w-full rounded-lg bg-white px-5 py-3 text-black font-semibold"
             >
               {loading ? "Submitting..." : "Submit Finding"}
