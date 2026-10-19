@@ -162,6 +162,39 @@ test.describe("Mass Assignment Security", () => {
     }
   });
 
+
+  test("should reject an empty or whitespace-only name", async ({
+    request,
+  }) => {
+    await loginAsAlice(request);
+
+    for (const name of ["", "   "]) {
+      const response = await request.patch("/api/users/profile", {
+        data: { name },
+      });
+
+      expect(response.status()).toBe(400);
+
+      const body = await response.json();
+      expect(body.error).toBe("Name must contain 1–100 characters");
+    }
+  });
+
+  test("should reject a name longer than 100 characters", async ({
+    request,
+  }) => {
+    await loginAsAlice(request);
+
+    const response = await request.patch("/api/users/profile", {
+      data: { name: "A".repeat(101) },
+    });
+
+    expect(response.status()).toBe(400);
+
+    const body = await response.json();
+    expect(body.error).toBe("Name must contain 1–100 characters");
+  });
+
   test("should reject a tampered session cookie", async ({ request }) => {
     const token = sessionHeaders("test-bob").Cookie.replace("qa_session=", "");
 
