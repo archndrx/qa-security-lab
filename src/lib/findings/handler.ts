@@ -80,19 +80,26 @@ export function createFindingsPostHandler({
       evidence?: unknown;
     };
 
+
     if (
       typeof challengeId !== "string" ||
-      !challengeId ||
+      !challengeId.trim() ||
+      challengeId.length > 100 ||
       typeof severity !== "string" ||
-      !severity ||
+      !["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(severity) ||
       typeof evidence !== "string" ||
-      !evidence
+      !evidence.trim() ||
+      evidence.length > 5000
     ) {
       return NextResponse.json(
-        { error: "challengeId, severity, and evidence are required" },
+        {
+          error:
+            "Invalid input: challengeId must be 1-100 characters, severity must be LOW, MEDIUM, HIGH, or CRITICAL, and evidence must be 1-5000 characters",
+        },
         { status: 400 }
       );
     }
+
 
     try {
       const user = await db.orm.public.User

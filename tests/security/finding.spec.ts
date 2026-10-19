@@ -261,4 +261,46 @@ test.describe("Finding & Scoring Security Tests", () => {
         const body = await response.json();
         expect(body.error).toBe("Challenge not found");
     });
+
+    test("Invalid severity is rejected", async ({ request }) => {
+        await loginAsBob(request);
+
+        const response = await request.post("/api/findings", {
+            data: {
+                challengeId: TEST_CHALLENGES.rateLimit,
+                severity: "EXTREME",
+                evidence: "Test evidence",
+            },
+        });
+
+        expect(response.status()).toBe(400);
+    });
+
+    test("Evidence exceeding 5000 characters is rejected", async ({ request }) => {
+        await loginAsBob(request);
+
+        const response = await request.post("/api/findings", {
+            data: {
+                challengeId: TEST_CHALLENGES.rateLimit,
+                severity: "HIGH",
+                evidence: "A".repeat(5001),
+            },
+        });
+
+        expect(response.status()).toBe(400);
+    });
+
+    test("Empty evidence is rejected", async ({ request }) => {
+        await loginAsBob(request);
+
+        const response = await request.post("/api/findings", {
+            data: {
+                challengeId: TEST_CHALLENGES.rateLimit,
+                severity: "HIGH",
+                evidence: "   ",
+            },
+        });
+
+        expect(response.status()).toBe(400);
+    });
 });

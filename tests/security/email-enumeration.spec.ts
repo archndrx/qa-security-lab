@@ -38,4 +38,40 @@ test.describe("Email Enumeration Security Tests", () => {
     expect(existingBody.exists).toBe(false);
     expect(unknownBody.exists).toBe(false);
   });
+
+  test("Invalid JSON body should return 400", async ({ request }) => {
+    const response = await request.post("/api/auth/check-email", {
+      headers: {
+        "content-type": "application/json",
+      },
+      data: Buffer.from("{invalid-json"),
+    });
+
+    expect(response.status()).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Invalid JSON body",
+    });
+  });
+
+  test("Invalid email values should return 400", async ({ request }) => {
+    const invalidBodies = [
+      {},
+      { email: "" },
+      { email: "   " },
+      { email: 123 },
+      null,
+      [],
+    ];
+
+    for (const data of invalidBodies) {
+      const response = await request.post("/api/auth/check-email", {
+        data,
+      });
+
+      expect(
+        response.status(),
+        `Expected 400 for input: ${JSON.stringify(data)}`
+      ).toBe(400);
+    }
+  });
 });
