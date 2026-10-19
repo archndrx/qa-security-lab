@@ -125,4 +125,71 @@ test.describe("Race Condition Security", () => {
             await bobRequest.dispose();
         }
     });
+
+    test("should reject repeated redemption after a coupon is fully used", async ({
+        playwright,
+    }) => {
+        const baseURL = "http://localhost:3000";
+        const repeatedCouponCode = `REPEAT-${randomUUID()}`;
+        const couponId = randomUUID();
+        const request = await playwright.request.newContext({ baseURL });
+
+        try {
+            await pool.query(
+                `
+                INSERT INTO "Coupon"
+                    ("id", "code", "discount", "maxUses", "usedCount", "createdAt")
+                VALUES ($1, $2, $3, $4, $5, NOW())
+                `,
+                [couponId, repeatedCouponCode, 50, 1, 0]
+            );
+
+            const loginResponse = await request.post("/api/auth/login", {
+                data: {
+                    email: "alice@lab.test",
+                    password: "password123",
+                },
+            });
+
+            expect(loginResponse.status()).toBe(200);
+
+            const firstResponse = await request.post("/api/coupons/redeem", {
+                data: { code: repeatedCouponCode },
+            });
+
+            expect(firstResponse.status()).toBe(200);
+
+            const secondResponse = await request.post("/api/coupons/redeem", {
+                data: { code: repeatedCouponCode },
+            });
+
+            expect(secondResponse.status()).toBe(409);
+            await expect(secondResponse.json()).resolves.toMatchObject({
+                error: "Coupon not found or already fully redeemed",
+            });
+
+            const result = await pool.query<{
+                usedCount: number;
+                maxUses: number;
+            }>(
+                `SELECT "usedCount", "maxUses" FROM "Coupon" WHERE "id" = $1`,
+                [couponId]
+            );
+
+            expect(result.rowCount).toBe(1);
+            expect(result.rows[0].usedCount).toBe(1);
+            expect(result.rows[0].usedCount).toBeLessThanOrEqual(
+                result.rows[0].maxUses
+            );
+        } finally {
+            await pool.query(
+                `DELETE FROM "CouponRedemption" WHERE "couponId" = $1`,
+                [couponId]
+            );
+            await pool.query(`DELETE FROM "Coupon" WHERE "id" = $1`, [
+                couponId,
+            ]);
+            await request.dispose();
+        }
+    });
 });
