@@ -234,4 +234,31 @@ test.describe("Finding & Scoring Security Tests", () => {
         expect(result.correct).toBe(false);
         expect(result.score).toBe(0);
     });
+
+
+    test("Unauthenticated challenge result request is rejected", async ({
+        request,
+    }) => {
+        const response = await request.get(
+            "/api/challenges/rate-limit/result"
+        );
+
+        expect(response.status()).toBe(401);
+
+        const body = await response.json();
+        expect(body.error).toBe("Authentication required");
+    });
+
+    test("Unknown challenge slug returns 404", async ({ request }) => {
+        await loginAsBob(request);
+
+        const response = await request.get(
+            "/api/challenges/qa-audit-nonexistent-challenge/result"
+        );
+
+        expect(response.status()).toBe(404);
+
+        const body = await response.json();
+        expect(body.error).toBe("Challenge not found");
+    });
 });
