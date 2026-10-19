@@ -36,18 +36,22 @@ Automated test references are included for traceability.
 
 ## Execution Evidence
 
-Run the relevant Playwright tests before recording execution status.
-
 | Field | Value |
 |---|---|
 | Test framework | Playwright |
 | Test type | API security testing |
-| Evidence sources | Playwright output and Allure report |
-| Execution status | Not recorded in this document yet |
+| Evidence sources | Playwright output and Allure report (`docs/screenshots/`) |
+| Last execution | 2026-10-19, local environment |
+| Result | 35 passed, 0 failed, 0 skipped (14.2s) |
 
-For each test execution, record the date, result, relevant test output,
-and any associated defect. Do not mark a case as Passed without verifying
-the actual test result.
+All 24 test cases above map to automated tests that passed in that run
+(the remaining 11 tests cover finding/scoring, sensitive data exposure,
+and findings error handling). Related documents:
+[IDOR regression proof](idor-regression-proof.md) and the
+[Security Test Report](../SECURITY-TEST-REPORT.md).
+
+Re-record the date, result, and any associated defect after each execution.
+Do not mark a case as Passed without verifying the actual test result.
 
 ## Defect Report Template
 

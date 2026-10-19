@@ -61,7 +61,7 @@ The interactive IDOR challenge is at `http://localhost:3000/challenges/idor`.
 | ----------------- | --------------------------------------- |
 | Total tests       | **35**                                  |
 | Passed / Failed   | **35 / 0**                              |
-| Duration          | 17.4s (6 workers, Chromium/API context) |
+| Duration          | 14.2s (6 workers, Chromium/API context) |
 | Last verified run | 2026-10-19                              |
 | CI                | GitHub Actions, Allure report uploaded as an artifact |
 
@@ -78,6 +78,11 @@ Allure graphs:
 ![Allure graphs](docs/screenshots/allure-graphs.png)
 
 Full written analysis of every scenario: [SECURITY-TEST-REPORT.md](SECURITY-TEST-REPORT.md).
+
+Supporting documentation:
+
+* [Security test cases](docs/test-cases.md): 24 traceable test cases mapped to automated tests
+* [IDOR regression proof](docs/idor-regression-proof.md): experiment showing the test suite detects a removed ownership check
 
 To get the Allure report from CI, open the latest **Security Tests** workflow run and download the `allure-security-report` artifact (kept 14 days).
 
@@ -422,7 +427,7 @@ Latest confirmed execution:
 ```text
 Running 35 tests using 6 workers
 
-35 passed (17.4s)
+35 passed (14.2s)
 0 failed
 ```
 
