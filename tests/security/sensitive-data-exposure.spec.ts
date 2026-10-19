@@ -147,4 +147,23 @@ test.describe("Sensitive Data Exposure", () => {
       expect(setCookie).toMatch(/;\s*secure(?:;|,|$)/i);
     }
   });
+
+  test("should clear the session cookie on logout", async ({ request }) => {
+    const response = await request.post("/api/auth/logout");
+
+    expect(response.status()).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      message: "Logout successful",
+    });
+
+    const setCookie = response.headers()["set-cookie"];
+
+    expect(setCookie).toBeTruthy();
+    expect(setCookie).toMatch(/(?:^|,\s*)qa_session=/i);
+    expect(setCookie).toMatch(/;\s*httponly(?:;|,|$)/i);
+    expect(setCookie).toMatch(/;\s*samesite=lax(?:;|,|$)/i);
+    expect(setCookie).toMatch(/;\s*path=\//i);
+    expect(setCookie).toMatch(/;\s*max-age=0(?:;|,|$)/i);
+    expect(setCookie).toMatch(/;\s*expires=Thu, 01 Jan 1970/i);
+  });
 });
