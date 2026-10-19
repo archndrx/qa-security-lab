@@ -16,7 +16,7 @@ export async function GET(
     );
   }
 
-  const currentUserId = getSessionUserId(request);
+  const currentUserId = await getSessionUserId(request);
 
   if (!currentUserId) {
     return NextResponse.json(

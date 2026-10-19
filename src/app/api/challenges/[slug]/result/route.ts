@@ -7,7 +7,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const userId = getSessionUserId(request);
+  const userId = await getSessionUserId(request);
 
   if (!userId) {
     return NextResponse.json(

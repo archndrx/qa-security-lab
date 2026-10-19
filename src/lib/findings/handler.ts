@@ -35,7 +35,7 @@ type FindingsDatabase = {
 
 type HandlerDependencies = {
   database: unknown;
-  getSessionUserId: (request: NextRequest) => string | null;
+  getSessionUserId: (request: NextRequest) => Promise<string | null>;
   logger?: Pick<Console, "error">;
 };
 
@@ -47,7 +47,7 @@ export function createFindingsPostHandler({
   const db = database as FindingsDatabase;
 
   return async function POST(request: NextRequest) {
-    const userId = getSessionUserId(request);
+    const userId = await getSessionUserId(request);
 
     if (!userId) {
       return NextResponse.json(

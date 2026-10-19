@@ -5,7 +5,7 @@ import { pgPool } from "@/lib/pg";
 import { getSessionUserId } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
-  const userId = getSessionUserId(request);
+  const userId = await getSessionUserId(request);
 
   if (!userId) {
     return NextResponse.json(

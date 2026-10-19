@@ -166,4 +166,41 @@ test.describe("Sensitive Data Exposure", () => {
     expect(setCookie).toMatch(/;\s*max-age=0(?:;|,|$)/i);
     expect(setCookie).toMatch(/;\s*expires=Thu, 01 Jan 1970/i);
   });
+
+
+  test("should reject a copied session token after logout", async ({
+    request,
+  }) => {
+    const loginResponse = await request.post("/api/auth/login", {
+      data: {
+        email: "alice@lab.test",
+        password: "password123",
+      },
+    });
+
+    expect(loginResponse.status()).toBe(200);
+
+    const setCookie = loginResponse.headers()["set-cookie"];
+    const match = setCookie?.match(/qa_session=([^;]+)/);
+
+    expect(match).toBeTruthy();
+
+    const stolenToken = decodeURIComponent(match![1]);
+    const sessionCookie = `qa_session=${stolenToken}`;
+
+    const beforeLogout = await request.get("/api/orders/1", {
+      headers: { Cookie: sessionCookie },
+    });
+    expect(beforeLogout.status()).toBe(200);
+
+    const logoutResponse = await request.post("/api/auth/logout", {
+      headers: { Cookie: sessionCookie },
+    });
+    expect(logoutResponse.status()).toBe(200);
+
+    const afterLogout = await request.get("/api/orders/1", {
+      headers: { Cookie: sessionCookie },
+    });
+    expect(afterLogout.status()).toBe(401);
+  });
 });

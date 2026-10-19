@@ -1,10 +1,24 @@
+import { NextRequest, NextResponse } from "next/server";
+import { revokeSession } from "@/lib/auth";
 
-import { NextResponse } from "next/server";
+export async function POST(request: NextRequest) {
+  const token = request.cookies.get("qa_session")?.value;
+  let revocationFailed = false;
 
-export async function POST() {
-  const response = NextResponse.json({
-    message: "Logout successful",
-  });
+  if (token) {
+    try {
+      await revokeSession(token);
+    } catch {
+      revocationFailed = true;
+    }
+  }
+
+  const response = revocationFailed
+    ? NextResponse.json(
+        { message: "Session revocation failed. Please retry logout." },
+        { status: 503 }
+      )
+    : NextResponse.json({ message: "Logout successful" });
 
   response.cookies.set("qa_session", "", {
     httpOnly: true,

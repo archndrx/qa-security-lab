@@ -36,7 +36,7 @@ test("returns a generic 500 response when finding creation fails", async () => {
 
   const handler = createFindingsPostHandler({
     database: mockDatabase,
-    getSessionUserId: () => "test-user",
+    getSessionUserId: async () => "test-user",
     logger: {
       error: (...args: unknown[]) => {
         loggedErrors.push(args);
