@@ -121,4 +121,30 @@ test.describe("Sensitive Data Exposure", () => {
       error: "Email and password are required",
     });
   });
+
+  test("should set secure session cookie attributes after login", async ({
+    request,
+  }) => {
+    const response = await request.post("/api/auth/login", {
+      data: {
+        email: "alice@lab.test",
+        password: "password123",
+      },
+    });
+
+    expect(response.status()).toBe(200);
+
+    const setCookie = response.headers()["set-cookie"];
+
+    expect(setCookie).toBeTruthy();
+    expect(setCookie).toMatch(/(?:^|,\s*)qa_session=/i);
+    expect(setCookie).toMatch(/;\s*httponly(?:;|,|$)/i);
+    expect(setCookie).toMatch(/;\s*samesite=lax(?:;|,|$)/i);
+    expect(setCookie).toMatch(/;\s*path=\//i);
+    expect(setCookie).toMatch(/;\s*max-age=3600(?:;|,|$)/i);
+
+    if (process.env.NODE_ENV === "production") {
+      expect(setCookie).toMatch(/;\s*secure(?:;|,|$)/i);
+    }
+  });
 });
