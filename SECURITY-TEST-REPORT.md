@@ -517,14 +517,13 @@ allure-report/
 The report can be generated with:
 
 ```bash
-npx allure generate allure-results --clean -o allure-report
+npm run allure:generate
 ```
 
-For local preview in a WSL environment:
+For local preview:
 
 ```bash
-cd allure-report
-python3 -m http.server 8080 --bind 0.0.0.0
+npm run allure:serve
 ```
 
 Then access:
@@ -533,7 +532,24 @@ Then access:
 http://localhost:8080
 ```
 
-Generated Allure artifacts are excluded from version control.
+Generated Allure artifacts are excluded from version control. In CI the report is uploaded as the `allure-security-report` artifact (retained for 14 days).
+
+### Visual Evidence
+
+Screenshots taken from the Allure report generated for the run in section 14
+(35 tests, 100% pass rate, 10 suites).
+
+**Overview**
+
+![Allure overview](docs/screenshots/allure-overview.png)
+
+**Suites** (one per security area; 35 passed, 0 failed, 0 broken, 0 skipped)
+
+![Allure suites](docs/screenshots/allure-suites.png)
+
+**Graphs**
+
+![Allure graphs](docs/screenshots/allure-graphs.png)
 
 ---
 
@@ -696,15 +712,18 @@ Latest confirmed execution:
 ```text
 Running 35 tests using 6 workers
 
-35 passed (12.8s)
+35 passed (17.4s)
 0 failed
 ```
 
 Execution time:
 
 ```text
-12.8s
+17.4s
 ```
+
+Run date: 2026-10-19, against a freshly started local Next.js dev server and
+seeded PostgreSQL database. The visual evidence for this run is in section 10.
 
 ### Final Result
 
@@ -725,8 +744,10 @@ The CI pipeline performs:
 5. Initialize PostgreSQL
 6. Seed deterministic test data
 7. Start the application
-8. Probe API routes
-9. Execute security tests
+8. Probe API routes (unauthenticated requests must return `401`)
+9. Execute security tests (`npx playwright test`, 35 tests)
+10. Generate the Allure report
+11. Upload the report as the `allure-security-report` artifact
 
 The pipeline is intended to function as a security regression gate so that security-related regressions can be detected during CI execution.
 

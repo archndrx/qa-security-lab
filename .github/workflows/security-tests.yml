@@ -57,7 +57,6 @@ jobs:
       - name: Start application
         env:
           DATABASE_URL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public
-          IDOR_SECURITY_FIX: "true"
         run: |
           npm run dev > app.log 2>&1 &
 
@@ -67,7 +66,6 @@ jobs:
       - name: Probe API routes
         env:
           DATABASE_URL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public
-          IDOR_SECURITY_FIX: "true"
         run: |
           set -euo pipefail
 
@@ -99,10 +97,11 @@ jobs:
       - name: Run security tests
         env:
           DATABASE_URL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public
-          IDOR_SECURITY_FIX: "true"
-        run: |
-          cat app.log
-          npx playwright test
+        run: npx playwright test
+
+      - name: Print application log on failure
+        if: failure()
+        run: cat app.log
 
       - name: Generate Allure report
         if: always()

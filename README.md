@@ -28,6 +28,61 @@ The project is designed as a practical QA Engineering portfolio project, with em
 
 ---
 
+## ⚡ Quick Start (Demo)
+
+Requirements: Node.js 22+, a running PostgreSQL (the defaults below match `.env.example`), and Java 17+ only if you want to generate the Allure report.
+
+```bash
+git clone https://github.com/archndrx/qa-security-lab.git
+cd qa-security-lab
+npm install
+cp .env.example .env          # then set SESSION_SECRET: openssl rand -hex 32
+npm run db:init               # create the schema
+npm run db:seed               # deterministic test data
+npm run dev                   # http://localhost:3000
+```
+
+In a second terminal, with the app running:
+
+```bash
+npm test                      # 35 Playwright security tests
+npm run allure:generate       # build allure-report/
+npm run allure:serve          # http://localhost:8080
+```
+
+Demo accounts (seeded): `alice@lab.test` and `bob@lab.test`, password `password123`.
+The interactive IDOR challenge is at `http://localhost:3000/challenges/idor`.
+
+---
+
+## ✅ Latest Test Results
+
+| Metric            | Value                                   |
+| ----------------- | --------------------------------------- |
+| Total tests       | **35**                                  |
+| Passed / Failed   | **35 / 0**                              |
+| Duration          | 17.4s (6 workers, Chromium/API context) |
+| Last verified run | 2026-10-19                              |
+| CI                | GitHub Actions, Allure report uploaded as an artifact |
+
+Allure overview (35 tests, 100% pass rate, one suite per security area):
+
+![Allure overview](docs/screenshots/allure-overview.png)
+
+Allure suites:
+
+![Allure suites](docs/screenshots/allure-suites.png)
+
+Allure graphs:
+
+![Allure graphs](docs/screenshots/allure-graphs.png)
+
+Full written analysis of every scenario: [SECURITY-TEST-REPORT.md](SECURITY-TEST-REPORT.md).
+
+To get the Allure report from CI, open the latest **Security Tests** workflow run and download the `allure-security-report` artifact (kept 14 days).
+
+---
+
 ## 🎯 Project Goals
 
 This project demonstrates how a QA Engineer can:
@@ -367,7 +422,7 @@ Latest confirmed execution:
 ```text
 Running 35 tests using 6 workers
 
-35 passed (12.8s)
+35 passed (17.4s)
 0 failed
 ```
 
@@ -394,14 +449,13 @@ allure-report/
 Generate the report:
 
 ```bash
-npx allure generate allure-results --clean -o allure-report
+npm run allure:generate
 ```
 
-For local preview, the generated static report can be served using:
+For local preview, serve the generated static report:
 
 ```bash
-cd allure-report
-python3 -m http.server 8080 --bind 0.0.0.0
+npm run allure:serve
 ```
 
 Then open:
@@ -410,7 +464,7 @@ Then open:
 http://localhost:8080
 ```
 
-Generated Allure artifacts are excluded from Git through `.gitignore`.
+Generated Allure artifacts are excluded from Git through `.gitignore`. Committed screenshots live in `docs/screenshots/`. In CI the report is uploaded as the `allure-security-report` artifact.
 
 ---
 
@@ -501,9 +555,13 @@ Seed Deterministic Test Data
         ↓
 Start Next.js
         ↓
-Probe API Routes
+Probe API Routes (unauthenticated requests must return 401)
         ↓
-Run Security Tests
+Run Security Tests (35)
+        ↓
+Generate Allure Report
+        ↓
+Upload Allure Report Artifact
 ```
 
 The CI environment uses deterministic test data so that security tests can run consistently across environments.
@@ -610,8 +668,11 @@ qa-security-lab/
 │       ├── rate-limit.spec.ts
 │       └── sensitive-data-exposure.spec.ts
 │
+├── docs/
+│   └── screenshots/          # Allure evidence (overview, suites, graphs)
+│
+├── .env.example
 ├── SECURITY-TEST-REPORT.md
-├── seed.mjs
 ├── reset-seed.mjs
 ├── playwright.config.ts
 └── prisma.config.ts
@@ -645,26 +706,22 @@ npm install
 
 ### 3. Configure environment variables
 
-Create `.env`:
-
-```env
-DATABASE_URL="postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public"
-SESSION_SECRET="<random string of at least 32 characters>"
+```bash
+cp .env.example .env
 ```
 
-`SESSION_SECRET` signs the `qa_session` cookie. Generate one with `openssl rand -hex 32`. In CI a random value is generated on every run. Never commit a real secret.
+Set `SESSION_SECRET` in `.env` to a random string of at least 32 characters (`openssl rand -hex 32`). It signs the `qa_session` cookie, and the tests use the same value to sign cookies directly. In CI a random value is generated on every run. Never commit a real secret.
 
 ### 4. Initialize the database
 
 ```bash
-npx prisma db init --db "$DATABASE_URL"
+npm run db:init
 ```
 
 ### 5. Seed test data
 
 ```bash
-node reset-seed.mjs
-node seed.mjs
+npm run db:seed
 ```
 
 The deterministic seed creates:
@@ -699,14 +756,17 @@ http://localhost:3000
 ### 7. Run security tests
 
 ```bash
-npx playwright test tests/security
+npm test                    # all 35 tests
+npm run test:security       # only the 34 tests in tests/security
 ```
 
 ### 8. Generate Allure report
 
 ```bash
-npx allure generate allure-results --clean -o allure-report
+npm run allure:generate
 ```
+
+The server and tests share the rate limiter in memory: the login limit is 5 attempts per email per 60 seconds. If you rerun the suite repeatedly in quick succession and see `429` responses, wait a minute or restart `npm run dev`.
 
 ---
 
