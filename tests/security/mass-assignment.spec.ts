@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { Pool } from "pg";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHmac } from "node:crypto";
 import { sessionHeaders } from "./helpers/session";
 import bcrypt from "bcryptjs";
 
@@ -231,5 +231,32 @@ test.describe("Mass Assignment Security", () => {
     });
 
     expect(forged.status()).toBe(401);
+  });
+  test("should reject an expired session cookie", async ({ request }) => {
+    const secret = process.env.SESSION_SECRET;
+
+    if (!secret || secret.length < 32) {
+      throw new Error("SESSION_SECRET must be configured");
+    }
+
+    const payload = Buffer.from(
+      JSON.stringify({
+        sub: "test-bob",
+        exp: Math.floor(Date.now() / 1000) - 60,
+      }),
+    ).toString("base64url");
+
+    const signature = createHmac("sha256", secret)
+      .update(payload)
+      .digest("base64url");
+
+    const response = await request.patch("/api/users/profile", {
+      headers: {
+        Cookie: `qa_session=${payload}.${signature}`,
+      },
+      data: { name: "Expired Session" },
+    });
+
+    expect(response.status()).toBe(401);
   });
 });
