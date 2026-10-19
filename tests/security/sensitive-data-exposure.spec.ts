@@ -88,4 +88,37 @@ test.describe("Sensitive Data Exposure", () => {
     expect(body).not.toHaveProperty("detail");
     expect(body).not.toHaveProperty("stack");
   });
+
+  test("should reject missing login fields", async ({ request }) => {
+    const response = await request.post("/api/auth/login", {
+      data: { email: "alice@lab.test" },
+    });
+
+    expect(response.status()).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Email and password are required",
+    });
+  });
+
+  test("should reject a non-string email", async ({ request }) => {
+    const response = await request.post("/api/auth/login", {
+      data: { email: 123, password: "password123" },
+    });
+
+    expect(response.status()).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Email and password are required",
+    });
+  });
+
+  test("should reject an empty password", async ({ request }) => {
+    const response = await request.post("/api/auth/login", {
+      data: { email: "alice@lab.test", password: "" },
+    });
+
+    expect(response.status()).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Email and password are required",
+    });
+  });
 });
