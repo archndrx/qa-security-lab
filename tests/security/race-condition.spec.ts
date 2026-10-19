@@ -192,4 +192,75 @@ test.describe("Race Condition Security", () => {
             await request.dispose();
         }
     });
+
+    test("should reject repeated redemption by the same user while coupon still has uses", async ({
+        playwright,
+    }) => {
+        const baseURL = "http://localhost:3000";
+        const repeatedCouponCode = `DUPLICATE-${randomUUID()}`;
+        const couponId = randomUUID();
+        const request = await playwright.request.newContext({ baseURL });
+
+        try {
+            await pool.query(
+                `
+            INSERT INTO "Coupon"
+                ("id", "code", "discount", "maxUses", "usedCount", "createdAt")
+            VALUES ($1, $2, $3, $4, $5, NOW())
+            `,
+                [couponId, repeatedCouponCode, 50, 3, 0]
+            );
+
+            const loginResponse = await request.post("/api/auth/login", {
+                data: {
+                    email: "alice@lab.test",
+                    password: "password123",
+                },
+            });
+
+            expect(loginResponse.status()).toBe(200);
+
+            const firstResponse = await request.post("/api/coupons/redeem", {
+                data: { code: repeatedCouponCode },
+            });
+
+            expect(firstResponse.status()).toBe(200);
+
+            const secondResponse = await request.post("/api/coupons/redeem", {
+                data: { code: repeatedCouponCode },
+            });
+
+            expect(secondResponse.status()).toBe(409);
+            await expect(secondResponse.json()).resolves.toMatchObject({
+                error: "Coupon already redeemed by this user",
+            });
+
+            const result = await pool.query<{
+                usedCount: number;
+                redemptions: number;
+            }>(
+                `
+            SELECT
+                c."usedCount",
+                COUNT(r."id")::int AS redemptions
+            FROM "Coupon" c
+            LEFT JOIN "CouponRedemption" r ON r."couponId" = c."id"
+            WHERE c."id" = $1
+            GROUP BY c."id", c."usedCount"
+            `,
+                [couponId]
+            );
+
+            expect(result.rowCount).toBe(1);
+            expect(result.rows[0].usedCount).toBe(1);
+            expect(result.rows[0].redemptions).toBe(1);
+        } finally {
+            await pool.query(
+                `DELETE FROM "CouponRedemption" WHERE "couponId" = $1`,
+                [couponId]
+            );
+            await pool.query(`DELETE FROM "Coupon" WHERE "id" = $1`, [couponId]);
+            await request.dispose();
+        }
+    });
 });

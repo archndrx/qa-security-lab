@@ -104,6 +104,19 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     await client.query("ROLLBACK");
+
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "23505"
+    ) {
+      return NextResponse.json(
+        { error: "Coupon already redeemed by this user" },
+        { status: 409 }
+      );
+    }
+
     console.error("Coupon redemption error:", error);
 
     return NextResponse.json(
