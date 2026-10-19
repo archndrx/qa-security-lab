@@ -44,6 +44,15 @@ jobs:
           DATABASE_URL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public
         run: npx prisma db init --db "$DATABASE_URL"
 
+      - name: Apply SQL migrations
+        env:
+          PGURL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab
+        run: |
+          for f in sql/*.sql; do
+            echo "Applying $f"
+            psql "$PGURL" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
       - name: Seed database
         env:
           DATABASE_URL: postgresql://qasecurity:qasecurity@localhost:5432/qasecuritylab?schema=public

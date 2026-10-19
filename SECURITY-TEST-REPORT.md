@@ -6,7 +6,7 @@ This project is a **QA Security Playground** designed to demonstrate practical s
 
 The security test suite is implemented using **Playwright** and covers common web application security scenarios.
 
-The project currently contains **35 automated security tests** covering:
+The project currently contains **53 automated security tests** covering:
 
 * IDOR / Broken Access Control
 * Rate Limit
@@ -27,15 +27,15 @@ Allure is used to generate a visual test report from the Playwright execution re
 | ---------------------------- | ---------: | ----------- |
 | IDOR / Broken Access Control |          6 | PASS        |
 | Rate Limit                   |          1 | PASS        |
-| Email Enumeration            |          1 | PASS        |
+| Email Enumeration            |          3 | PASS        |
 | Open Redirect                |          5 | PASS        |
-| Finding & Scoring            |          7 | PASS        |
-| Race Condition               |          1 | PASS        |
-| Mass Assignment              |          5 | PASS        |
-| Sensitive Data Exposure      |          3 | PASS        |
+| Finding & Scoring            |         12 | PASS        |
+| Race Condition               |          3 | PASS        |
+| Mass Assignment              |          8 | PASS        |
+| Sensitive Data Exposure      |          9 | PASS        |
 | RBAC / Privilege Escalation  |          5 | PASS        |
 | Findings error handling      |          1 | PASS        |
-| **Total**                    |     **35** | **35 PASS** |
+| **Total**                    |     **53** | **53 PASS** |
 
 ---
 
@@ -129,7 +129,7 @@ The current playground implementation enforces:
 5 attempts / 60 seconds
 ```
 
-The limit is tracked per email address, and passwords are verified against bcrypt hashes.
+The limit is tracked per email address and stored in PostgreSQL (`LoginRateLimit`, created by `sql/login-rate-limit.sql`), so counters survive server restarts and are shared across instances. A transaction-scoped advisory lock serializes concurrent attempts for the same email, and a successful login clears the counter. Passwords are verified against bcrypt hashes.
 
 Requests exceeding the threshold receive:
 
@@ -143,11 +143,13 @@ HTTP 429 Too Many Requests
 tests/security/rate-limit.spec.ts
 ```
 
+The test sends seven failed logins for a unique email (`rate-limit-<timestamp>@lab.test`) and asserts the exact sequence `401 ×5, 429 ×2`. A unique email per run means the test cannot lock out seeded accounts or collide with earlier runs.
+
 Result:
 
 **1 passed**
 
-> The current rate-limit implementation uses in-memory state and is intentionally simplified for the local security playground. A production implementation would require a shared/distributed rate-limiting mechanism.
+> The limiter is keyed by email only (not by IP) and expired rows are not purged automatically. This is intentionally simplified for the local security playground.
 
 ---
 
@@ -196,9 +198,11 @@ Existing and non-existing email addresses should not be distinguishable through 
 tests/security/email-enumeration.spec.ts
 ```
 
+Covered scenarios: existing and non-existing emails are indistinguishable; an invalid JSON body returns `400`; invalid email values (non-string or empty) return `400`.
+
 Result:
 
-**1 passed**
+**3 passed**
 
 ---
 
@@ -369,9 +373,17 @@ usedCount = 1
 usedCount <= maxUses
 ```
 
+Two further tests cover repeated redemption:
+
+* Redeeming a coupon that is already fully used is rejected.
+* The same user redeeming a coupon twice while uses remain gets `409 Conflict`
+  (the unique-constraint violation `23505` is mapped to a clean error instead of a `500`).
+
+Result: **3 passed**.
+
 ### Test Isolation
 
-The test creates a unique coupon for every execution and removes it afterward.
+Each test creates a unique coupon and removes it afterward.
 
 This prevents the test from depending on the state of the deterministic application seed.
 
@@ -416,10 +428,15 @@ Findings are created and read for the authenticated session user. A `userId` in 
 | Forged `userId` in body                     |   Not impersonated |
 | Result returns latest finding of session user |    Latest finding |
 | Another user's finding                      |      Not exposed |
+| Unauthenticated challenge result request    |          Rejected |
+| Unknown challenge slug                      |               404 |
+| Invalid severity                            |          Rejected |
+| Evidence over 5000 characters               |          Rejected |
+| Empty evidence                              |          Rejected |
 
 Result:
 
-**7 passed**
+**12 passed**
 
 ---
 
@@ -428,21 +445,23 @@ Result:
 The security tests are organized as:
 
 ```text
-tests/security/
-├── config/
-│   └── test-data.ts
-├── helpers/
-│   ├── security.ts
-│   └── session.ts
-├── idor.spec.ts
-├── rate-limit.spec.ts
-├── email-enumeration.spec.ts
-├── open-redirect.spec.ts
-├── race-condition.spec.ts
-├── mass-assignment.spec.ts
-├── rbac.spec.ts
-├── sensitive-data-exposure.spec.ts
-└── finding.spec.ts
+tests/
+├── findings-error-handling.spec.ts
+└── security/
+    ├── config/
+    │   └── test-data.ts
+    ├── helpers/
+    │   ├── security.ts
+    │   └── session.ts
+    ├── idor.spec.ts
+    ├── rate-limit.spec.ts
+    ├── email-enumeration.spec.ts
+    ├── open-redirect.spec.ts
+    ├── race-condition.spec.ts
+    ├── mass-assignment.spec.ts
+    ├── rbac.spec.ts
+    ├── sensitive-data-exposure.spec.ts
+    └── finding.spec.ts
 ```
 
 The tests focus on observable security behavior rather than implementation details.
@@ -537,13 +556,13 @@ Generated Allure artifacts are excluded from version control. In CI the report i
 ### Visual Evidence
 
 Screenshots taken from the Allure report generated for the run in section 14
-(35 tests, 100% pass rate, 10 suites).
+(53 tests, 100% pass rate, 10 suites).
 
 **Overview**
 
 ![Allure overview](docs/screenshots/allure-overview.png)
 
-**Suites** (one per security area; 35 passed, 0 failed, 0 broken, 0 skipped)
+**Suites** (one per security area; 53 passed, 0 failed, 0 broken, 0 skipped)
 
 ![Allure suites](docs/screenshots/allure-suites.png)
 
@@ -581,16 +600,19 @@ explicitly permitted `name` field. The acting user is taken from the signed
 - Alice cannot update Bob by forging `userId`.
 - A tampered session cookie is rejected (`401`).
 - Requests without a valid session are rejected (`401`).
+- An expired session cookie is rejected (`401`).
+- Empty, whitespace-only, and over-100-character names are rejected (`400`).
 
 Each test creates its own temporary user (with a bcrypt-hashed password) and
 deletes it afterward, so the per-email login rate limit cannot couple tests.
 
-**Result:** 5/5 tests passed.
+**Result:** 8/8 tests passed.
 
 ## Remaining Risk
 
-The session is a simple HMAC-signed cookie for this lab. It has no server-side
-revocation or rotation. This lab app is not production-ready.
+Sessions are HMAC-signed cookies carrying a `jti` claim, and logout revokes the
+`jti` server-side (see section 12). There is still no rotation or idle timeout.
+This lab app is not production-ready.
 
 ---
 
@@ -606,6 +628,13 @@ parser errors.
 
 * Login responses contain only a message and `userId`.
 * Failed logins return a generic `Invalid credentials` error.
+* Missing, non-string, or empty login fields return `400`.
+* The `qa_session` cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age=3600`
+  (and `Secure` in production).
+* Logout expires the cookie and records the session's `jti` in `RevokedSession`
+  (`sql/session-revocation.sql`). A copied token is rejected (`401`) after logout.
+  Session lookup fails closed: if the revocation table cannot be queried, the
+  request is treated as unauthenticated. Logout returns `503` if revocation fails.
 * Malformed JSON sent to `/api/findings` returns `400 Invalid JSON body`.
 * Unexpected server errors return a generic `Failed to create finding`
   message; details are logged server-side only.
@@ -616,18 +645,23 @@ parser errors.
 tests/security/sensitive-data-exposure.spec.ts
 ```
 
-| Scenario                  | Expected Result                                  |
-| ------------------------- | ------------------------------------------------ |
-| Successful login          | No password, hash, token, or user object exposed |
-| Failed login              | Generic error; submitted password not echoed     |
-| Invalid JSON body         | `400` with no `detail` or `stack` fields         |
+| Scenario                         | Expected Result                                  |
+| -------------------------------- | ------------------------------------------------ |
+| Successful login                 | No password, hash, token, or user object exposed |
+| Failed login                     | Generic error; submitted password not echoed     |
+| Invalid JSON body                | `400` with no `detail` or `stack` fields         |
+| Missing login fields             | `400`                                            |
+| Non-string email                 | `400`                                            |
+| Empty password                   | `400`                                            |
+| Session cookie after login       | HttpOnly, SameSite=Lax, Path=/, Max-Age=3600     |
+| Logout                           | Cookie cleared                                   |
+| Copied session token after logout | `401` (server-side revocation)                  |
 
 ### Test Isolation
 
-The rate limit is keyed by email and stored in module-level memory. The
-rate limit test therefore uses a dedicated email
-(`rate-limit-test@lab.test`) so it cannot lock out the valid Alice account
-used by these tests when they run in parallel.
+Login rate-limit counters live in PostgreSQL (see section 3). The rate-limit
+test uses a unique email per run, so it cannot lock out the seeded Alice and
+Bob accounts used by other tests.
 
 ### Error Handling Verification
 
@@ -644,7 +678,7 @@ containing internal SQL details. The test asserts that:
 This is a handler-level test with a mock database, not an end-to-end request
 against a running server. It lives in `tests/`, outside `tests/security/`.
 
-**Result:** 3/3 Sensitive Data Exposure tests and 1/1 error-handling test passed.
+**Result:** 9/9 Sensitive Data Exposure tests and 1/1 error-handling test passed.
 
 ---
 
@@ -705,21 +739,21 @@ is not consumed.
 
 The complete automated security test suite currently contains:
 
-**35 security tests**
+**53 security tests**
 
 Latest confirmed execution:
 
 ```text
-Running 35 tests using 6 workers
+Running 53 tests using 6 workers
 
-35 passed (17.4s)
+53 passed (18.4s)
 0 failed
 ```
 
 Execution time:
 
 ```text
-17.4s
+18.4s
 ```
 
 Run date: 2026-10-19, against a freshly started local Next.js dev server and
@@ -727,7 +761,7 @@ seeded PostgreSQL database. The visual evidence for this run is in section 10.
 
 ### Final Result
 
-**35/35 security tests passed**
+**53/53 security tests passed**
 
 ---
 
@@ -741,13 +775,14 @@ The CI pipeline performs:
 2. Setup Node.js
 3. Install dependencies
 4. Install Playwright browsers
-5. Initialize PostgreSQL
-6. Seed deterministic test data
-7. Start the application
-8. Probe API routes (unauthenticated requests must return `401`)
-9. Execute security tests (`npx playwright test`, 35 tests)
-10. Generate the Allure report
-11. Upload the report as the `allure-security-report` artifact
+5. Initialize PostgreSQL (Prisma schema)
+6. Apply `sql/*.sql` (`LoginRateLimit`, `RevokedSession`)
+7. Seed deterministic test data
+8. Start the application
+9. Probe API routes (unauthenticated requests must return `401`)
+10. Execute security tests (`npx playwright test`, 53 tests)
+11. Generate the Allure report
+12. Upload the report as the `allure-security-report` artifact
 
 The pipeline is intended to function as a security regression gate so that security-related regressions can be detected during CI execution.
 
@@ -772,6 +807,8 @@ Current implemented security scenarios:
 | Session Authentication       | Implemented |
 | Password Hashing (bcrypt)    | Implemented |
 | Sensitive Data Exposure      | Implemented |
+| Session Revocation (logout)  | Implemented |
+| Persistent Login Rate Limit  | Implemented |
 | RBAC / Privilege Escalation  | Implemented |
 
 ---
@@ -816,6 +853,6 @@ Integrate With CI/CD
 
 The current implementation successfully validates:
 
-**35 automated security tests with 0 failures.**
+**53 automated security tests with 0 failures.**
 
 The project is intentionally designed as a learning and portfolio environment rather than a production security platform.

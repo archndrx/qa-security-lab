@@ -30,7 +30,7 @@ The project is designed as a practical QA Engineering portfolio project, with em
 
 ## ⚡ Quick Start (Demo)
 
-Requirements: Node.js 22+, a running PostgreSQL (the defaults below match `.env.example`), and Java 17+ only if you want to generate the Allure report.
+Requirements: Node.js 22+, a running PostgreSQL with the `psql` client on your PATH (the defaults below match `.env.example`), and Java 17+ only if you want to generate the Allure report. `npm run db:init` creates the Prisma schema and then applies `sql/*.sql` (the `LoginRateLimit` and `RevokedSession` tables).
 
 ```bash
 git clone https://github.com/archndrx/qa-security-lab.git
@@ -45,7 +45,7 @@ npm run dev                   # http://localhost:3000
 In a second terminal, with the app running:
 
 ```bash
-npm test                      # 35 Playwright security tests
+npm test                      # 53 Playwright security tests
 npm run allure:generate       # build allure-report/
 npm run allure:serve          # http://localhost:8080
 ```
@@ -59,13 +59,13 @@ The interactive IDOR challenge is at `http://localhost:3000/challenges/idor`.
 
 | Metric            | Value                                   |
 | ----------------- | --------------------------------------- |
-| Total tests       | **35**                                  |
-| Passed / Failed   | **35 / 0**                              |
-| Duration          | 14.2s (6 workers, Chromium/API context) |
+| Total tests       | **53**                                  |
+| Passed / Failed   | **53 / 0**                              |
+| Duration          | 18.4s (6 workers, Chromium/API context) |
 | Last verified run | 2026-10-19                              |
 | CI                | GitHub Actions, Allure report uploaded as an artifact |
 
-Allure overview (35 tests, 100% pass rate, one suite per security area):
+Allure overview (53 tests, 100% pass rate, one suite per security area):
 
 ![Allure overview](docs/screenshots/allure-overview.png)
 
@@ -165,7 +165,7 @@ The current local implementation uses a threshold of:
 5 attempts / 60 seconds
 ```
 
-The Playwright test verifies that repeated failed login attempts eventually receive HTTP `429`. The limit is tracked per email address.
+The Playwright test verifies that repeated failed login attempts eventually receive HTTP `429`. The limit is tracked per email address and stored in PostgreSQL (`LoginRateLimit`), so it survives server restarts and is shared across server instances. Concurrent attempts for the same email are serialized with an advisory lock. The test uses a unique email per run, so it cannot collide with other tests.
 
 Passwords are stored as bcrypt hashes and verified with `bcrypt.compare`.
 
@@ -179,7 +179,7 @@ Result:
 
 **1 passed**
 
-> Note: the current in-memory implementation is intentionally simplified for the playground and is not intended to represent a production-grade distributed rate-limiting solution.
+> Note: the rate limiter is keyed by email only (not by IP address) and is intentionally simplified for the playground. Expired rows are not purged automatically.
 
 ---
 
@@ -206,7 +206,7 @@ tests/security/email-enumeration.spec.ts
 
 Result:
 
-**1 passed**
+**3 passed** (response comparison, invalid JSON body, invalid email values)
 
 ---
 
@@ -290,9 +290,11 @@ tests/security/race-condition.spec.ts
 
 Result:
 
-**1 passed**
+**3 passed** (concurrent redemption by two users, repeated redemption after the coupon is fully used, repeated redemption by the same user)
 
-The race-condition test creates a unique coupon for each execution and cleans it up afterward, making it independent from the deterministic application seed.
+A unique constraint violation (`23505`) on a repeated redemption by the same user is returned as `409 Conflict`.
+
+The race-condition tests create a unique coupon for each execution and clean it up afterward, making them independent from the deterministic application seed.
 
 ---
 
@@ -319,6 +321,9 @@ Unauthenticated submission            → Rejected
 Forged userId                         → Cannot impersonate another user
 Result endpoint                       → Latest finding of the session user only
 Another user's finding                → Not exposed
+Unknown challenge slug                → 404
+Invalid severity                      → Rejected
+Empty or oversized (>5000) evidence   → Rejected
 ```
 
 Test file:
@@ -329,7 +334,7 @@ tests/security/finding.spec.ts
 
 Result:
 
-**7 passed**
+**12 passed**
 
 ---
 
@@ -352,13 +357,16 @@ Automated regression tests verify that:
 * Alice cannot update Bob by forging `userId`
 * A tampered session cookie is rejected (`401`)
 * Requests without a valid session are rejected (`401`)
+* An expired session cookie is rejected (`401`)
+* Empty, whitespace-only, and over-100-character names are rejected (`400`)
 
 Each test creates its own temporary user, so the per-email login rate limit never couples tests together.
 
-**Status:** Remediated; 5 regression tests passing.
+**Status:** Remediated; 8 regression tests passing.
 
-**Remaining concern:** The session is a simple HMAC-signed cookie for this lab. It has no
-server-side revocation or rotation, and this lab app must not be treated as production-ready.
+**Remaining concern:** Sessions are HMAC-signed cookies with server-side revocation on logout
+(`RevokedSession`, keyed by the `jti` claim), but there is no rotation or idle timeout. This lab
+app must not be treated as production-ready.
 
 ---
 
@@ -404,30 +412,30 @@ Current coverage:
 | ---------------------------- | -----: | ----------- |
 | IDOR / Broken Access Control |      6 | PASS        |
 | Rate Limit                   |      1 | PASS        |
-| Email Enumeration            |      1 | PASS        |
+| Email Enumeration            |      3 | PASS        |
 | Open Redirect                |      5 | PASS        |
-| Finding & Scoring            |      7 | PASS        |
-| Race Condition               |      1 | PASS        |
-| Mass Assignment              |      5 | PASS        |
-| Sensitive Data Exposure      |      3 | PASS        |
+| Finding & Scoring            |     12 | PASS        |
+| Race Condition               |      3 | PASS        |
+| Mass Assignment              |      8 | PASS        |
+| Sensitive Data Exposure      |      9 | PASS        |
 | RBAC / Privilege Escalation  |      5 | PASS        |
 | Findings error handling      |      1 | PASS        |
-| **Total**                    | **35** | **35 PASS** |
+| **Total**                    | **53** | **53 PASS** |
 
-Run the complete suite (35 tests):
+Run the complete suite (53 tests):
 
 ```bash
 npx playwright test
 ```
 
-`npx playwright test tests/security` runs only the 34 tests in the security directory. The findings error-handling test lives in `tests/` and is skipped by that narrower command.
+`npx playwright test tests/security` runs only the 52 tests in the security directory. The findings error-handling test lives in `tests/` and is skipped by that narrower command.
 
 Latest confirmed execution:
 
 ```text
-Running 35 tests using 6 workers
+Running 53 tests using 6 workers
 
-35 passed (14.2s)
+53 passed (18.4s)
 0 failed
 ```
 
@@ -482,8 +490,9 @@ Generated Allure artifacts are excluded from Git through `.gitignore`. Committed
 | IDOR               | Missing session                        | `401 Unauthorized`       | ✅         |
 | IDOR               | Forged `X-User-ID` header              | `401 Unauthorized`       | ✅         |
 | IDOR               | Invalid order ID                       | `400 Bad Request`        | ✅         |
-| Rate Limit         | Repeated failed login attempts         | `429 Too Many Requests`  | ✅         |
+| Rate Limit         | Repeated failed login attempts (DB-backed) | `429 Too Many Requests` | ✅      |
 | Email Enumeration  | Existing/non-existing email comparison | Generic response         | ✅         |
+| Email Enumeration  | Invalid JSON / non-string email        | `400 Bad Request`        | ✅         |
 | Open Redirect      | External URL                           | `400 Bad Request`        | ✅         |
 | Open Redirect      | Protocol-relative URL                  | `400 Bad Request`        | ✅         |
 | Open Redirect      | JavaScript URL                         | `400 Bad Request`        | ✅         |
@@ -492,6 +501,9 @@ Generated Allure artifacts are excluded from Git through `.gitignore`. Committed
 | Finding Validation | Correct security finding               | Score `100`              | ✅         |
 | Finding Validation | Incorrect finding                      | Score `0`                | ✅         |
 | Race Condition     | Concurrent coupon redemption           | Only one succeeds        | ✅         |
+| Race Condition     | Repeat redemption (same user / used-up coupon) | `409` / rejected  | ✅         |
+| Mass Assignment    | Expired session cookie                 | `401 Unauthorized`       | ✅         |
+| Mass Assignment    | Empty or over-100-character name       | `400 Bad Request`        | ✅         |
 | Mass Assignment    | Modify protected profile attributes    | Protected fields unchanged | ✅       |
 | Mass Assignment    | Forge `userId` to update another user  | Other user unchanged     | ✅         |
 | Mass Assignment    | Tampered or missing session cookie     | `401 Unauthorized`       | ✅         |
@@ -499,6 +511,11 @@ Generated Allure artifacts are excluded from Git through `.gitignore`. Committed
 | Sensitive Data Exposure | Successful login response         | No password, hash, or token | ✅      |
 | Sensitive Data Exposure | Failed login response             | No sensitive data echoed | ✅         |
 | Sensitive Data Exposure | Invalid JSON body                 | `400`, no internal details | ✅       |
+| Sensitive Data Exposure | Missing, non-string, or empty login fields | `400 Bad Request` | ✅        |
+| Sensitive Data Exposure | Session cookie attributes after login | HttpOnly, SameSite=Lax, Path=/, Max-Age=3600 | ✅ |
+| Sensitive Data Exposure | Logout clears the cookie               | Cookie expired           | ✅         |
+| Sensitive Data Exposure | Copied session token after logout      | `401` (server-side revocation) | ✅   |
+| Finding Validation | Unknown slug, bad severity, empty/oversized evidence | `404` / `400` | ✅      |
 | RBAC               | Unauthenticated admin request          | `401 Unauthorized`       | ✅         |
 | RBAC               | Regular user calls admin endpoint      | `403 Forbidden`          | ✅         |
 | RBAC               | Admin lists users                      | `200 OK`, no passwords   | ✅         |
@@ -554,7 +571,9 @@ Install Playwright Browsers
         ↓
 Start PostgreSQL
         ↓
-Initialize Database
+Initialize Database (Prisma schema)
+        ↓
+Apply SQL Migrations (sql/*.sql)
         ↓
 Seed Deterministic Test Data
         ↓
@@ -562,7 +581,7 @@ Start Next.js
         ↓
 Probe API Routes (unauthenticated requests must return 401)
         ↓
-Run Security Tests (35)
+Run Security Tests (53)
         ↓
 Generate Allure Report
         ↓
@@ -631,7 +650,8 @@ qa-security-lab/
 │   │       │   └── users/
 │   │       ├── auth/
 │   │       │   ├── check-email/
-│   │       │   └── login/
+│   │       │   ├── login/
+│       │   └── logout/
 │   │       ├── challenges/
 │   │       │   └── [slug]/
 │   │       ├── coupons/
@@ -675,6 +695,10 @@ qa-security-lab/
 │
 ├── docs/
 │   └── screenshots/          # Allure evidence (overview, suites, graphs)
+│
+├── sql/                      # LoginRateLimit and RevokedSession tables
+│   ├── login-rate-limit.sql
+│   └── session-revocation.sql
 │
 ├── .env.example
 ├── SECURITY-TEST-REPORT.md
@@ -761,8 +785,8 @@ http://localhost:3000
 ### 7. Run security tests
 
 ```bash
-npm test                    # all 35 tests
-npm run test:security       # only the 34 tests in tests/security
+npm test                    # all 53 tests
+npm run test:security       # only the 52 tests in tests/security
 ```
 
 ### 8. Generate Allure report
@@ -771,7 +795,7 @@ npm run test:security       # only the 34 tests in tests/security
 npm run allure:generate
 ```
 
-The server and tests share the rate limiter in memory: the login limit is 5 attempts per email per 60 seconds. If you rerun the suite repeatedly in quick succession and see `429` responses, wait a minute or restart `npm run dev`.
+Login rate-limit counters are stored in PostgreSQL, so they persist across server restarts. Seeded users reset their counter on a successful login, and the rate-limit test uses a fresh email on every run, so repeated suite runs do not interfere with each other. If you manually fail logins for `alice@lab.test` or `bob@lab.test`, wait 60 seconds before rerunning.
 
 ---
 

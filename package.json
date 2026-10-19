@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "playwright test",
     "test:security": "playwright test tests/security",
-    "db:init": "sh -c 'set -a; . ./.env; prisma db init --db \"$DATABASE_URL\"'",
+    "db:init": "sh -c 'set -a; . ./.env; prisma db init --db \"$DATABASE_URL\" && for f in sql/*.sql; do psql \"${DATABASE_URL%%\\?*}\" -v ON_ERROR_STOP=1 -q -f \"$f\"; done'",
     "db:seed": "node reset-seed.mjs && node seed.mjs",
     "allure:generate": "allure generate allure-results --clean -o allure-report",
     "allure:serve": "python3 -m http.server 8080 --directory allure-report",
