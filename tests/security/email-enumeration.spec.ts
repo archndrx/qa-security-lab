@@ -37,6 +37,7 @@ test.describe("Email Enumeration Security Tests", () => {
 
     expect(existingBody.exists).toBe(false);
     expect(unknownBody.exists).toBe(false);
+    expect(existingBody).toEqual(unknownBody);
   });
 
   test("Invalid JSON body should return 400", async ({ request }) => {
