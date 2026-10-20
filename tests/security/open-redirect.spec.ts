@@ -74,4 +74,25 @@ test.describe("Open Redirect Security Tests", () => {
 
     expect(response.status()).toBe(400);
   });
+  test("Ambiguous internal paths should be blocked", async ({ request }) => {
+    const targets = [
+      "/\\evil.example.com",
+      "/%5Cevil.example.com",
+      "/%2F%2Fevil.example.com",
+      "///evil.example.com",
+      "/ /evil.example.com",
+    ];
+
+    for (const target of targets) {
+      const response = await request.get(
+        `/api/redirect?url=${encodeURIComponent(target)}`,
+        { maxRedirects: 0 }
+      );
+
+      expect(
+        response.status(),
+        `Ambiguous redirect target should be rejected: ${target}`
+      ).toBe(400);
+    }
+  });
 });

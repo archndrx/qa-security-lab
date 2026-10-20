@@ -15,7 +15,10 @@ export async function GET(request: Request) {
   if (
     !target.startsWith("/") ||
     target.startsWith("//") ||
-    target.startsWith("/\\")
+    target.startsWith("/\\") ||
+    /%2f|%5c/i.test(target) ||
+    /[\u0000-\u001F\u007F]/.test(target) ||
+    /\s/.test(target)
   ) {
     return NextResponse.json(
       { error: "Invalid redirect URL" },
