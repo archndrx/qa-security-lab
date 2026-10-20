@@ -303,4 +303,23 @@ test.describe("Finding & Scoring Security Tests", () => {
 
         expect(response.status()).toBe(400);
     });
+
+    test("Client cannot force a finding to be marked correct", async ({ request }) => {
+        await loginAsBob(request);
+
+        const response = await request.post("/api/findings", {
+            data: {
+                challengeId: TEST_CHALLENGES.rateLimit,
+                severity: "LOW",
+                evidence: "Example evidence",
+                isCorrect: true,
+            },
+        });
+
+        expect(response.status()).toBe(201);
+
+        const finding = await response.json();
+        expect(finding.userId).toBe(TEST_USERS.bob.id);
+        expect(finding.isCorrect).toBe(false);
+    });
 });
