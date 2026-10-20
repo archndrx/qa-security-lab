@@ -12,7 +12,11 @@ export async function GET(request: Request) {
   }
 
   // Only allow internal relative paths.
-  if (!target.startsWith("/") || target.startsWith("//")) {
+  if (
+    !target.startsWith("/") ||
+    target.startsWith("//") ||
+    target.startsWith("/\\")
+  ) {
     return NextResponse.json(
       { error: "Invalid redirect URL" },
       { status: 400 }

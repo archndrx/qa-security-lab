@@ -63,4 +63,15 @@ test.describe("Open Redirect Security Tests", () => {
 
     expect(response.status()).toBe(400);
   });
+
+  test("Backslash-based external URL should be blocked", async ({
+    request,
+  }) => {
+    const response = await request.get(
+      "/api/redirect?url=%2F%5Cevil.example.com",
+      { maxRedirects: 0 }
+    );
+
+    expect(response.status()).toBe(400);
+  });
 });
