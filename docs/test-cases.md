@@ -30,9 +30,13 @@ Automated test references are included for traceability.
 | TC-REDIR-003 | JavaScript redirect URL | Unsafe redirect is blocked | Critical | `tests/security/open-redirect.spec.ts` |
 | TC-REDIR-004 | Internal redirect path | Internal redirect is allowed | Medium | `tests/security/open-redirect.spec.ts` |
 | TC-REDIR-005 | Missing redirect URL | Request is rejected | Low | `tests/security/open-redirect.spec.ts` |
+| TC-REDIR-006 | Backslash-based external URL (`/\evil.example.com`) | Unsafe redirect is blocked (400) | High | `tests/security/open-redirect.spec.ts` |
+| TC-REDIR-007 | Ambiguous paths (encoded slash/backslash, `///`, whitespace) | Unsafe redirect is blocked (400) | High | `tests/security/open-redirect.spec.ts` |
 | TC-MA-006 | Expired session cookie on profile update | Request is rejected | High | `tests/security/mass-assignment.spec.ts` |
 | TC-MA-007 | Empty or whitespace-only name | Request is rejected (400) | Medium | `tests/security/mass-assignment.spec.ts` |
 | TC-MA-008 | Name longer than 100 characters | Request is rejected (400) | Medium | `tests/security/mass-assignment.spec.ts` |
+| TC-MA-009 | Correctly signed session without a `jti` claim | Request is rejected (401) | High | `tests/security/mass-assignment.spec.ts` |
+| TC-RATE-002 | Ten concurrent failed logins (unique email) | Exactly 5 × 401 and 5 × 429 | High | `tests/security/rate-limit.spec.ts` |
 | TC-RATE-001 | Five failed logins, then two more (unique email, PostgreSQL-backed limit) | 401 ×5, then 429 ×2 | High | `tests/security/rate-limit.spec.ts` |
 | TC-ENUM-001 | Compare responses for existing and non-existing emails | Account existence is not distinguishable from responses | Medium | `tests/security/email-enumeration.spec.ts` |
 | TC-ENUM-002 | Invalid JSON body | Request is rejected (400) | Low | `tests/security/email-enumeration.spec.ts` |
@@ -50,6 +54,7 @@ Automated test references are included for traceability.
 | TC-FIND-001 | Finding submission and scoring (correct, incorrect, latest, other user's) | Correct scores and no cross-user exposure | High | `tests/security/finding.spec.ts` |
 | TC-FIND-002 | Unauthenticated submission or forged userId | Rejected / not impersonated | Critical | `tests/security/finding.spec.ts` |
 | TC-FIND-003 | Unknown slug, invalid severity, empty or oversized evidence | Rejected (404 / 400) | Medium | `tests/security/finding.spec.ts` |
+| TC-FIND-004 | Client sends `isCorrect: true` | Ignored; finding stored as incorrect | High | `tests/security/finding.spec.ts` |
 | TC-ERR-001 | Finding creation fails internally | Generic 500; no internal details leaked | High | `tests/findings-error-handling.spec.ts` |
 
 ## Execution Evidence
@@ -60,9 +65,9 @@ Automated test references are included for traceability.
 | Test type | API security testing |
 | Evidence sources | Playwright output and Allure report (`docs/screenshots/`) |
 | Last execution | 2026-10-19, local environment |
-| Result | 53 passed, 0 failed, 0 skipped (18.4s) |
+| Result | 58 passed, 0 failed, 0 skipped (19.4s) |
 
-The test cases above group the 53 automated tests that passed in that run
+The test cases above group the 58 automated tests that passed in that run
 (some rows cover several closely related tests). Related documents:
 [IDOR regression proof](idor-regression-proof.md) and the
 [Security Test Report](../SECURITY-TEST-REPORT.md).

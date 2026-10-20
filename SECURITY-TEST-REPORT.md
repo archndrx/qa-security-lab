@@ -6,7 +6,7 @@ This project is a **QA Security Playground** designed to demonstrate practical s
 
 The security test suite is implemented using **Playwright** and covers common web application security scenarios.
 
-The project currently contains **53 automated security tests** covering:
+The project currently contains **58 automated security tests** covering:
 
 * IDOR / Broken Access Control
 * Rate Limit
@@ -26,16 +26,16 @@ Allure is used to generate a visual test report from the Playwright execution re
 | Security Area                | Test Cases | Result      |
 | ---------------------------- | ---------: | ----------- |
 | IDOR / Broken Access Control |          6 | PASS        |
-| Rate Limit                   |          1 | PASS        |
+| Rate Limit                   |          2 | PASS        |
 | Email Enumeration            |          3 | PASS        |
-| Open Redirect                |          5 | PASS        |
-| Finding & Scoring            |         12 | PASS        |
+| Open Redirect                |          7 | PASS        |
+| Finding & Scoring            |         13 | PASS        |
 | Race Condition               |          3 | PASS        |
-| Mass Assignment              |          8 | PASS        |
+| Mass Assignment              |          9 | PASS        |
 | Sensitive Data Exposure      |          9 | PASS        |
 | RBAC / Privilege Escalation  |          5 | PASS        |
 | Findings error handling      |          1 | PASS        |
-| **Total**                    |     **53** | **53 PASS** |
+| **Total**                    |     **58** | **58 PASS** |
 
 ---
 
@@ -147,7 +147,9 @@ The test sends seven failed logins for a unique email (`rate-limit-<timestamp>@l
 
 Result:
 
-**1 passed**
+**2 passed**
+
+A second test sends 10 concurrent failed logins for another unique email and asserts exactly five `401` and five `429`, verifying that the advisory lock prevents concurrent requests from bypassing the limit.
 
 > The limiter is keyed by email only (not by IP) and expired rows are not purged automatically. This is intentionally simplified for the local security playground.
 
@@ -257,6 +259,9 @@ javascript:alert(1)
 | JavaScript URL        |      400 |
 | Internal path         |      307 |
 | Missing URL           |      400 |
+| Backslash / encoded slash / whitespace path | 400 |
+
+The validator also rejects `/\evil.example.com`, encoded `%2f`/`%5c`, control characters and whitespace, because browsers may normalize a backslash to a slash.
 
 ### Automated Test
 
@@ -266,7 +271,7 @@ tests/security/open-redirect.spec.ts
 
 Result:
 
-**5 passed**
+**7 passed**
 
 ---
 
@@ -433,10 +438,11 @@ Findings are created and read for the authenticated session user. A `userId` in 
 | Invalid severity                            |          Rejected |
 | Evidence over 5000 characters               |          Rejected |
 | Empty evidence                              |          Rejected |
+| Client-supplied `isCorrect: true`           | Ignored (stored false) |
 
 Result:
 
-**12 passed**
+**13 passed**
 
 ---
 
@@ -556,13 +562,13 @@ Generated Allure artifacts are excluded from version control. In CI the report i
 ### Visual Evidence
 
 Screenshots taken from the Allure report generated for the run in section 14
-(53 tests, 100% pass rate, 10 suites).
+(58 tests, 100% pass rate, 10 suites).
 
 **Overview**
 
 ![Allure overview](docs/screenshots/allure-overview.png)
 
-**Suites** (one per security area; 53 passed, 0 failed, 0 broken, 0 skipped)
+**Suites** (one per security area; 58 passed, 0 failed, 0 broken, 0 skipped)
 
 ![Allure suites](docs/screenshots/allure-suites.png)
 
@@ -601,12 +607,13 @@ explicitly permitted `name` field. The acting user is taken from the signed
 - A tampered session cookie is rejected (`401`).
 - Requests without a valid session are rejected (`401`).
 - An expired session cookie is rejected (`401`).
+- A correctly signed session without a `jti` claim is rejected (`401`).
 - Empty, whitespace-only, and over-100-character names are rejected (`400`).
 
 Each test creates its own temporary user (with a bcrypt-hashed password) and
 deletes it afterward, so the per-email login rate limit cannot couple tests.
 
-**Result:** 8/8 tests passed.
+**Result:** 9/9 tests passed.
 
 ## Remaining Risk
 
@@ -739,21 +746,21 @@ is not consumed.
 
 The complete automated security test suite currently contains:
 
-**53 security tests**
+**58 security tests**
 
 Latest confirmed execution:
 
 ```text
-Running 53 tests using 6 workers
+Running 58 tests using 6 workers
 
-53 passed (18.4s)
+58 passed (19.4s)
 0 failed
 ```
 
 Execution time:
 
 ```text
-18.4s
+19.4s
 ```
 
 Run date: 2026-10-19, against a freshly started local Next.js dev server and
@@ -761,7 +768,7 @@ seeded PostgreSQL database. The visual evidence for this run is in section 10.
 
 ### Final Result
 
-**53/53 security tests passed**
+**58/58 security tests passed**
 
 ---
 
@@ -780,7 +787,7 @@ The CI pipeline performs:
 7. Seed deterministic test data
 8. Start the application
 9. Probe API routes (unauthenticated requests must return `401`)
-10. Execute security tests (`npx playwright test`, 53 tests)
+10. Execute security tests (`npx playwright test`, 58 tests)
 11. Generate the Allure report
 12. Upload the report as the `allure-security-report` artifact
 
@@ -853,6 +860,6 @@ Integrate With CI/CD
 
 The current implementation successfully validates:
 
-**53 automated security tests with 0 failures.**
+**58 automated security tests with 0 failures.**
 
 The project is intentionally designed as a learning and portfolio environment rather than a production security platform.

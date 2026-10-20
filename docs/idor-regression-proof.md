@@ -34,7 +34,7 @@ The complete Playwright suite also passed with 35 tests and zero
 failures in 13.9 seconds.
 
 > Note: these figures are from the original experiment, when the suite had
-> 35 tests. The suite has since grown to 53 tests (all passing in the latest
+> 35 tests. The suite has since grown to 58 tests (all passing in the latest
 > run); the IDOR tests themselves are unchanged (6 tests).
 
 The vulnerable implementation was used only for a controlled local

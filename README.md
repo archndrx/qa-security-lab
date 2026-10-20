@@ -45,7 +45,7 @@ npm run dev                   # http://localhost:3000
 In a second terminal, with the app running:
 
 ```bash
-npm test                      # 53 Playwright security tests
+npm test                      # 58 Playwright security tests
 npm run allure:generate       # build allure-report/
 npm run allure:serve          # http://localhost:8080
 ```
@@ -59,13 +59,13 @@ The interactive IDOR challenge is at `http://localhost:3000/challenges/idor`.
 
 | Metric            | Value                                   |
 | ----------------- | --------------------------------------- |
-| Total tests       | **53**                                  |
-| Passed / Failed   | **53 / 0**                              |
-| Duration          | 18.4s (6 workers, Chromium/API context) |
+| Total tests       | **58**                                  |
+| Passed / Failed   | **58 / 0**                              |
+| Duration          | 19.4s (6 workers, Chromium/API context) |
 | Last verified run | 2026-10-19                              |
 | CI                | GitHub Actions, Allure report uploaded as an artifact |
 
-Allure overview (53 tests, 100% pass rate, one suite per security area):
+Allure overview (58 tests, 100% pass rate, one suite per security area):
 
 ![Allure overview](docs/screenshots/allure-overview.png)
 
@@ -165,7 +165,7 @@ The current local implementation uses a threshold of:
 5 attempts / 60 seconds
 ```
 
-The Playwright test verifies that repeated failed login attempts eventually receive HTTP `429`. The limit is tracked per email address and stored in PostgreSQL (`LoginRateLimit`), so it survives server restarts and is shared across server instances. Concurrent attempts for the same email are serialized with an advisory lock. The test uses a unique email per run, so it cannot collide with other tests.
+The Playwright test verifies that repeated failed login attempts eventually receive HTTP `429`. The limit is tracked per email address and stored in PostgreSQL (`LoginRateLimit`), so it survives server restarts and is shared across server instances. Concurrent attempts for the same email are serialized with an advisory lock. The tests use a unique email per run, so they cannot collide with other tests. A second test fires 10 concurrent failed logins and expects exactly five `401` and five `429`.
 
 Passwords are stored as bcrypt hashes and verified with `bcrypt.compare`.
 
@@ -177,7 +177,7 @@ tests/security/rate-limit.spec.ts
 
 Result:
 
-**1 passed**
+**2 passed** (sequential limit, concurrent limit)
 
 > Note: the rate limiter is keyed by email only (not by IP address) and is intentionally simplified for the playground. Expired rows are not purged automatically.
 
@@ -238,6 +238,10 @@ Automated coverage includes:
 * JavaScript URL
 * Valid internal path
 * Missing redirect URL
+* Backslash-based external URL (`/\evil.example.com`)
+* Ambiguous paths: encoded backslash or slashes (`%5C`, `%2F`), triple slash, whitespace
+
+The validator accepts only paths starting with a single `/`, and rejects `//`, `/\`, encoded `%2f`/`%5c`, control characters and whitespace.
 
 Test file:
 
@@ -247,7 +251,7 @@ tests/security/open-redirect.spec.ts
 
 Result:
 
-**5 passed**
+**7 passed**
 
 ---
 
@@ -324,6 +328,7 @@ Another user's finding                → Not exposed
 Unknown challenge slug                → 404
 Invalid severity                      → Rejected
 Empty or oversized (>5000) evidence   → Rejected
+Client-supplied isCorrect: true       → Ignored (stored as false)
 ```
 
 Test file:
@@ -334,7 +339,7 @@ tests/security/finding.spec.ts
 
 Result:
 
-**12 passed**
+**13 passed**
 
 ---
 
@@ -359,10 +364,11 @@ Automated regression tests verify that:
 * Requests without a valid session are rejected (`401`)
 * An expired session cookie is rejected (`401`)
 * Empty, whitespace-only, and over-100-character names are rejected (`400`)
+* A correctly signed session without a `jti` claim is rejected (`401`)
 
 Each test creates its own temporary user, so the per-email login rate limit never couples tests together.
 
-**Status:** Remediated; 8 regression tests passing.
+**Status:** Remediated; 9 regression tests passing.
 
 **Remaining concern:** Sessions are HMAC-signed cookies with server-side revocation on logout
 (`RevokedSession`, keyed by the `jti` claim), but there is no rotation or idle timeout. This lab
@@ -411,31 +417,31 @@ Current coverage:
 | Area                         |  Tests | Result      |
 | ---------------------------- | -----: | ----------- |
 | IDOR / Broken Access Control |      6 | PASS        |
-| Rate Limit                   |      1 | PASS        |
+| Rate Limit                   |      2 | PASS        |
 | Email Enumeration            |      3 | PASS        |
-| Open Redirect                |      5 | PASS        |
-| Finding & Scoring            |     12 | PASS        |
+| Open Redirect                |      7 | PASS        |
+| Finding & Scoring            |     13 | PASS        |
 | Race Condition               |      3 | PASS        |
-| Mass Assignment              |      8 | PASS        |
+| Mass Assignment              |      9 | PASS        |
 | Sensitive Data Exposure      |      9 | PASS        |
 | RBAC / Privilege Escalation  |      5 | PASS        |
 | Findings error handling      |      1 | PASS        |
-| **Total**                    | **53** | **53 PASS** |
+| **Total**                    | **58** | **58 PASS** |
 
-Run the complete suite (53 tests):
+Run the complete suite (58 tests):
 
 ```bash
 npx playwright test
 ```
 
-`npx playwright test tests/security` runs only the 52 tests in the security directory. The findings error-handling test lives in `tests/` and is skipped by that narrower command.
+`npx playwright test tests/security` runs only the 57 tests in the security directory. The findings error-handling test lives in `tests/` and is skipped by that narrower command.
 
 Latest confirmed execution:
 
 ```text
-Running 53 tests using 6 workers
+Running 58 tests using 6 workers
 
-53 passed (18.4s)
+58 passed (19.4s)
 0 failed
 ```
 
@@ -491,6 +497,7 @@ Generated Allure artifacts are excluded from Git through `.gitignore`. Committed
 | IDOR               | Forged `X-User-ID` header              | `401 Unauthorized`       | ✅         |
 | IDOR               | Invalid order ID                       | `400 Bad Request`        | ✅         |
 | Rate Limit         | Repeated failed login attempts (DB-backed) | `429 Too Many Requests` | ✅      |
+| Rate Limit         | 10 concurrent failed logins            | Exactly 5 × `401`, 5 × `429` | ✅    |
 | Email Enumeration  | Existing/non-existing email comparison | Generic response         | ✅         |
 | Email Enumeration  | Invalid JSON / non-string email        | `400 Bad Request`        | ✅         |
 | Open Redirect      | External URL                           | `400 Bad Request`        | ✅         |
@@ -498,11 +505,14 @@ Generated Allure artifacts are excluded from Git through `.gitignore`. Committed
 | Open Redirect      | JavaScript URL                         | `400 Bad Request`        | ✅         |
 | Open Redirect      | Valid internal redirect                | `307 Temporary Redirect` | ✅         |
 | Open Redirect      | Missing URL                            | `400 Bad Request`        | ✅         |
+| Open Redirect      | Backslash / encoded / whitespace paths | `400 Bad Request`        | ✅         |
 | Finding Validation | Correct security finding               | Score `100`              | ✅         |
 | Finding Validation | Incorrect finding                      | Score `0`                | ✅         |
+| Finding Validation | Client sends `isCorrect: true`         | Ignored, stored `false`  | ✅         |
 | Race Condition     | Concurrent coupon redemption           | Only one succeeds        | ✅         |
 | Race Condition     | Repeat redemption (same user / used-up coupon) | `409` / rejected  | ✅         |
 | Mass Assignment    | Expired session cookie                 | `401 Unauthorized`       | ✅         |
+| Mass Assignment    | Signed session without `jti`           | `401 Unauthorized`       | ✅         |
 | Mass Assignment    | Empty or over-100-character name       | `400 Bad Request`        | ✅         |
 | Mass Assignment    | Modify protected profile attributes    | Protected fields unchanged | ✅       |
 | Mass Assignment    | Forge `userId` to update another user  | Other user unchanged     | ✅         |
@@ -581,7 +591,7 @@ Start Next.js
         ↓
 Probe API Routes (unauthenticated requests must return 401)
         ↓
-Run Security Tests (53)
+Run Security Tests (58)
         ↓
 Generate Allure Report
         ↓
@@ -785,8 +795,8 @@ http://localhost:3000
 ### 7. Run security tests
 
 ```bash
-npm test                    # all 53 tests
-npm run test:security       # only the 52 tests in tests/security
+npm test                    # all 58 tests
+npm run test:security       # only the 57 tests in tests/security
 ```
 
 ### 8. Generate Allure report
